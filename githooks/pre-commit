@@ -1,0 +1,8 @@
+#!/bin/sh
+# The fast checks (no model calls, a few seconds) before every commit. Skip once with --no-verify.
+# uv from PATH, else where its installers put it (an app's git often runs with a short PATH).
+for uv in "$(command -v uv)" "$HOME/.local/bin/uv" /opt/homebrew/bin/uv /usr/local/bin/uv "$HOME/.cargo/bin/uv"; do
+  [ -x "$uv" ] && exec "$uv" run run_tests.py --offline
+done
+echo "pre-commit: uv not found; install it (https://docs.astral.sh/uv/) or skip once with --no-verify" >&2
+exit 1

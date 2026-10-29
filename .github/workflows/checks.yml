@@ -1,0 +1,27 @@
+# The checks a fresh clone can run: no speech models (gigabytes), no Claude subscription (the talker's checks),
+# no microphone. The rest run on your Mac: uv run run_tests.py.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: macos-15  # Apple silicon, as voice needs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install the git hooks (test_release.py checks they are)
+        run: git config core.hooksPath githooks
+      - name: Offline checks that download nothing
+        run: uv run run_tests.py --no-models
+      - name: The Swift programs build
+        run: |
+          mkdir -p build
+          xcrun swiftc -O audio_helper/main.swift -o build/audio_helper
+          xcrun swiftc -O audio_helper/onboarding.swift -o build/onboarding
+          xcrun swiftc -O audio_helper/launcher.swift -o build/launcher

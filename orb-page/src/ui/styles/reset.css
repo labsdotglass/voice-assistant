@@ -1,0 +1,35 @@
+/* Minimal reset + base. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-3);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+

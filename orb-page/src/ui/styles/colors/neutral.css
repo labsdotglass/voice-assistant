@@ -1,0 +1,71 @@
+/* === neutral === */
+/* The black bookend accent as a real scale (tokens.md §2.3.1). Hand-authored,
+ * not from @radix-ui/colors, and excluded from scripts/gen-color-scales.mjs.
+ * Steps 9 and 10 are the solid fill and its hover: near-black in light,
+ * near-white in dark. Every other step is tuned to sit with that fill; the
+ * first cut takes them from slate. No P3 block: for a neutral the wide-gamut
+ * delta is imperceptible. */
+:root, .light, .light-theme {
+  --neutral-1: #fcfcfd;
+  --neutral-2: #f9f9fb;
+  --neutral-3: #f0f0f3;
+  --neutral-4: #e8e8ec;
+  --neutral-5: #e0e1e6;
+  --neutral-6: #d9d9e0;
+  --neutral-7: #cdced6;
+  --neutral-8: #b9bbc6;
+  --neutral-9: #1c2024;
+  --neutral-10: #34383d;
+  --neutral-11: #60646c;
+  --neutral-12: #1c2024;
+  --neutral-contrast: #fcfcfd;
+}
+
+/* === neutral-alpha === */
+:root, .light, .light-theme {
+  --neutral-a1: #00005503;
+  --neutral-a2: #00005506;
+  --neutral-a3: #0000330f;
+  --neutral-a4: #00002d17;
+  --neutral-a5: #0009321f;
+  --neutral-a6: #00002f26;
+  --neutral-a7: #00062e32;
+  --neutral-a8: #00083046;
+  --neutral-a9: #000509e3;
+  --neutral-a10: #000509cc;
+  --neutral-a11: #0007149f;
+  --neutral-a12: #000509e3;
+}
+
+/* === neutral-dark === */
+.dark, .dark-theme {
+  --neutral-1: #111113;
+  --neutral-2: #18191b;
+  --neutral-3: #212225;
+  --neutral-4: #272a2d;
+  --neutral-5: #2e3135;
+  --neutral-6: #363a3f;
+  --neutral-7: #43484e;
+  --neutral-8: #5a6169;
+  --neutral-9: #edeef0;
+  --neutral-10: #d8dadd;
+  --neutral-11: #b0b4ba;
+  --neutral-12: #edeef0;
+  --neutral-contrast: #111113;
+}
+
+/* === neutral-dark-alpha === */
+.dark, .dark-theme {
+  --neutral-a1: #00000000;
+  --neutral-a2: #d8f4f609;
+  --neutral-a3: #ddeaf814;
+  --neutral-a4: #d3edf81d;
+  --neutral-a5: #d9edfe25;
+  --neutral-a6: #d6ebfd30;
+  --neutral-a7: #d9edff40;
+  --neutral-a8: #d9edff5d;
+  --neutral-a9: #fcfdffef;
+  --neutral-a10: #fcfdffd6;
+  --neutral-a11: #f1f7feb5;
+  --neutral-a12: #fcfdffef;
+}

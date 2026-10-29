@@ -1,0 +1,124 @@
+/* The orb floats on a transparent window: everything here is the orb, nothing is a backdrop. */
+.stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.orb {
+  width: 76%;
+  transition: transform 300ms ease-out, opacity 300ms ease-out;
+}
+
+.stage[data-voice='hearing'] .orb { transform: scale(1.06); }
+.stage[data-voice='starting'] .orb,
+.stage[data-voice='off'] .orb { opacity: 0.6; }
+
+/* Session working: three soft dots in the middle of the orb, breathing in turn. */
+.orb { position: relative; }
+
+.working {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 400ms ease-out;
+  pointer-events: none;
+}
+
+.working span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.95);
+  /* A faint indigo edge so the dots read on the blue sky and the white cloud alike. */
+  box-shadow: 0 0 0 1px rgb(30 50 140 / 0.22), 0 1px 3px rgb(30 50 140 / 0.35);
+  animation: breathe 1.2s ease-in-out infinite;
+}
+
+.working span:nth-child(2) { animation-delay: 0.2s; }
+.working span:nth-child(3) { animation-delay: 0.4s; }
+
+.stage[data-busy] .working { opacity: 1; }
+
+/* The drag handle: two short white stripes in the orb's middle, like an equals sign, in the
+   loader's style. Shown on hover, in the loader's place: while the session works, hovering swaps
+   the loader for the handle, and moving out brings the loader back. The helper sets the grab
+   cursor over it (its hit area matches this place: the orb's center). */
+.handle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  pointer-events: none;
+}
+
+.handle span {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.95);
+  box-shadow: 0 0 0 1px rgb(30 50 140 / 0.22), 0 1px 3px rgb(30 50 140 / 0.35);
+}
+
+.stage[data-hover] .handle { opacity: 1; }
+.stage[data-busy][data-hover] .working { opacity: 0; }
+
+/* A session opening (one voice started or went to): a flower of petals in the orb's middle, in
+   place of the dots, each lighting up in turn, until it's open. Hovering swaps it for the handle,
+   like the dots. */
+.opening {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%); /* centered as the dots are */
+  width: 26%;
+  aspect-ratio: 1;
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+
+/* Each petal hangs from the top middle and turns around the flower's center (its own rotation is set
+   inline): 12% wide, 23.5% long, so the middle stays open and a small gap shows between petals. */
+.opening span {
+  position: absolute;
+  left: 44%;
+  top: 0;
+  width: 12%;
+  height: 23.5%;
+  border-radius: 999px;
+  transform-origin: 50% 212.77%; /* the flower's center: 50% of it down, over 23.5% */
+  background: rgb(255 255 255 / 0.95);
+  box-shadow: 0 0 0 1px rgb(30 50 140 / 0.22), 0 1px 3px rgb(30 50 140 / 0.35);
+  animation: petal 1.2s linear infinite;
+}
+
+.stage[data-opening] .opening { opacity: 1; }
+.stage[data-opening] .working { opacity: 0; }
+.stage[data-opening][data-hover] .opening { opacity: 0; }
+
+@keyframes petal {
+  0% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .working span { animation: none; opacity: 0.8; }
+  .opening span { animation: none; opacity: 0.8; }
+}

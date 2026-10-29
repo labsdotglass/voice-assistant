@@ -1,0 +1,138 @@
+/* Layer 1 — Primitive scales.
+ * Color scales live under ./colors/ — one file per hue, each containing
+ * solid + alpha for both light and dark, with P3 wide-gamut overrides.
+ * Dark scales activate under the `.dark` class; light ones under `:root`
+ * and `.light`, so either can nest inside the other.
+ * Seeded from @radix-ui/colors (regenerate the vendored files with
+ * `node scripts/gen-color-scales.mjs`), gray.css included: it's Radix's real
+ * gray again. `neutral` is the only hand-authored file left — the black
+ * bookend accent as a scale, excluded from the generator. `--gray-*` as
+ * consumers see it by default is a remap onto slate, declared in theme.css,
+ * not a value in this layer. */
+
+/* Ours first, then every Radix scale (gray included), alphabetical. */
+@import "./colors/neutral.css";
+
+@import "./colors/gray.css";
+
+@import "./colors/amber.css";
+@import "./colors/blue.css";
+@import "./colors/bronze.css";
+@import "./colors/brown.css";
+@import "./colors/crimson.css";
+@import "./colors/cyan.css";
+@import "./colors/gold.css";
+@import "./colors/grass.css";
+@import "./colors/green.css";
+@import "./colors/indigo.css";
+@import "./colors/iris.css";
+@import "./colors/jade.css";
+@import "./colors/lime.css";
+@import "./colors/mauve.css";
+@import "./colors/mint.css";
+@import "./colors/olive.css";
+@import "./colors/orange.css";
+@import "./colors/pink.css";
+@import "./colors/plum.css";
+@import "./colors/purple.css";
+@import "./colors/red.css";
+@import "./colors/ruby.css";
+@import "./colors/sage.css";
+@import "./colors/sand.css";
+@import "./colors/sky.css";
+@import "./colors/slate.css";
+@import "./colors/teal.css";
+@import "./colors/tomato.css";
+@import "./colors/violet.css";
+@import "./colors/yellow.css";
+
+:root {
+  /* Typography — 7-step scale paired by index.
+   * 3 (13px) is the workhorse UI size; 2 (12px) meta; 4–5 content prose;
+   * 7 (24px) is reserved for document titles. Tracking runs slightly
+   * negative from the workhorse size up — a tight, app-like setting. */
+  --font-size-1: 11px;
+  --font-size-2: 12px;
+  --font-size-3: 13px;
+  --font-size-4: 14px;
+  --font-size-5: 16px;
+  --font-size-6: 20px;
+  --font-size-7: 24px;
+
+  --line-height-1: 16px;
+  --line-height-2: 16px;
+  --line-height-3: 18px;
+  --line-height-4: 20px;
+  --line-height-5: 24px;
+  --line-height-6: 28px;
+  --line-height-7: 32px;
+
+  --letter-spacing-1: 0.005em;
+  --letter-spacing-2: 0;
+  --letter-spacing-3: -0.003em;
+  --letter-spacing-4: -0.006em;
+  --letter-spacing-5: -0.008em;
+  --letter-spacing-6: -0.012em;
+  --letter-spacing-7: -0.014em;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --default-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter",
+    system-ui, sans-serif;
+  --code-font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace,
+    monospace;
+
+  /* Spacing — 9-step scale, 4px base */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-9: 64px;
+
+  /* Z-index scale — one ladder for every stacking layer. All overlays portal
+   * to <body>, so they compete in a single global context; the ladder keeps
+   * them ordered regardless of DOM position. Interactive overlays sit ABOVE
+   * the dialog so a Select/Menu/Combobox opened inside a modal renders over it
+   * (and its backdrop), and toasts sit above everything. */
+  --z-sticky: 10;   /* in-flow raised: sticky headers, section chrome */
+  --z-dialog: 100;  /* modal backdrop; the dialog itself is +1 */
+  --z-popover: 200; /* Select / Menu / Combobox / Popover popovers */
+  --z-tooltip: 250; /* tooltips — above popovers and menus */
+  --z-toast: 300;   /* notifications — always on top */
+
+  /* Radii — 6-step scale */
+  --radius-1: 3px;
+  --radius-2: 4px;
+  --radius-3: 6px;
+  --radius-4: 8px;
+  --radius-5: 12px;
+  --radius-6: 16px;
+  --radius-full: 9999px;
+
+  /* Motion — one snappy ease-out and two durations. Surfaces are flat and
+   * transitions are short and flat: hover/press use duration-1,
+   * larger reveals (popovers, panels) use duration-2. No bounces. */
+  --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --duration-1: 100ms;
+  --duration-2: 150ms;
+
+  /* Elevation — always darkening (black-alpha) regardless of theme. Using
+   * --gray-a* here would flip to white in dark mode and become a glow.
+   * Dark mode bumps the alpha because saturated shadows are needed to read
+   * against a deeper background; both modes are defined in semantic.css.
+   * Floating layers (3–5) are layered soft shadows and always pair with a
+   * hairline border set in component CSS — flat everywhere else.
+   * 1: hairline                 — pressed states, inset rings
+   * 2: resting card on canvas    — list cards, hovered elements
+   * 3: tooltip, small popover    — Ariakit Tooltip
+   * 4: dropdown, floating panel  — Ariakit Select / Menu / Popover
+   * 5: modal                     — Ariakit Dialog */
+  /* Elevation tokens live in semantic.css beside their dark counterparts, so a .light island re-declares them. */
+}

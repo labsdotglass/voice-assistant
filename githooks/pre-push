@@ -1,0 +1,8 @@
+#!/bin/sh
+# A push that changes what users get must bump the plugin's version (release_check.py). Skip once with --no-verify.
+# uv from PATH, else where its installers put it (an app's git often runs with a short PATH).
+for uv in "$(command -v uv)" "$HOME/.local/bin/uv" /opt/homebrew/bin/uv /usr/local/bin/uv "$HOME/.cargo/bin/uv"; do
+  [ -x "$uv" ] && exec "$uv" run release_check.py
+done
+echo "pre-push: uv not found; install it (https://docs.astral.sh/uv/) or skip once with --no-verify" >&2
+exit 1

@@ -1,0 +1,145 @@
+/* The first run's window (760×460): Welcome centred, then two columns, the orb on the left and the step on the
+   right. One orb throughout: it glides from Welcome's small one into the left column and never jumps. The
+   window's title bar is transparent, so the page runs to the top edge; 28px clears its close button. */
+html, body, #root { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--color-panel); -webkit-user-select: none; user-select: none; }
+
+.window { position: relative; height: 100%; --column: 42vw; --orb: 150px; --orb-top: calc(50vh - 125px); }
+
+/* The left column's backdrop, faded in as the orb arrives. */
+.left {
+  position: absolute; inset: 0 auto 0 0; width: var(--column);
+  background: linear-gradient(160deg, var(--gray-2), var(--gray-4));
+  -webkit-app-region: drag;
+  transition: opacity 500ms ease;
+}
+html:not(.dark) .left { background: linear-gradient(160deg, var(--blue-2), var(--blue-4)); } /* light: the orb's own sky */
+.centred .left { opacity: 0; }
+
+/* The orb: Welcome's small one at the top, the left column's large one after (a 0.5 s glide). In full color
+   on every screen. */
+.orb {
+  position: absolute; z-index: 1; aspect-ratio: 1;
+  left: calc(var(--column) / 2 - var(--orb) / 2); top: var(--orb-top); width: var(--orb);
+  transition: left 500ms cubic-bezier(0.3, 0.7, 0.2, 1), top 500ms cubic-bezier(0.3, 0.7, 0.2, 1),
+    width 500ms cubic-bezier(0.3, 0.7, 0.2, 1), opacity 200ms ease;
+}
+/* The "Right-click the orb" slide shows its menu in the orb's place, as the old tour did. */
+.window:has(.orb-menu.shown) .orb { opacity: 0; }
+.centred .orb { left: calc(50vw - 28px); top: 30px; width: 56px; }
+/* Its active blue even at rest: the orb's idle state grays the palette, and a host palette outranks that. */
+.orb .colors { --ai-avatar-color-1: var(--blue-9); --ai-avatar-color-3: var(--blue-3); }
+.dark .orb .colors { --ai-avatar-color-3: color-mix(in srgb, var(--blue-12), var(--gray-12) 60%); }
+
+/* "Right-click the orb": its menu where the orb was (the UI parts' menu tokens). It fades and slides in with
+   the slide, out when leaving it. */
+.orb-menu {
+  position: absolute; z-index: 2; width: 170px; padding: 4px;
+  left: calc(var(--column) / 2 - 85px); top: calc(var(--orb-top) + var(--orb) / 2 - 100px);
+  background: var(--color-panel); border: 1px solid var(--gray-a5); border-radius: var(--radius-4); box-shadow: var(--shadow-4);
+  font-size: var(--font-size-2); color: var(--gray-12); pointer-events: none;
+  opacity: 0; visibility: hidden; transform: translate(-6px, -6px);
+  transition: opacity 200ms ease, transform 200ms ease-out, visibility 0s 200ms;
+}
+.orb-menu.shown { opacity: 1; visibility: visible; transform: none; transition: opacity 200ms ease, transform 200ms ease-out, visibility 0s; }
+.orb-menu div { display: flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--radius-2); }
+.orb-menu div.picked { background: var(--accent-a4); }
+.orb-menu svg { width: 12px; height: 12px; margin-left: auto; color: var(--gray-11); }
+.orb-menu hr { border: 0; border-top: 1px solid var(--gray-a5); margin: 4px 8px; }
+
+/* Under the orb: setup's bar with the bytes and the time left, or what it hears. */
+.under {
+  position: absolute; z-index: 1; left: 36px; width: calc(var(--column) - 72px);
+  top: calc(var(--orb-top) + var(--orb) + 26px);
+  opacity: 0; transition: opacity 300ms ease;
+}
+/* Setup's bar sits at the bottom of the column, level with the buttons, leaving the middle to the orb. */
+.under:has(.progress) { top: auto; bottom: 30px; }
+.under.shown { opacity: 1; }
+.columns .under.shown { transition-delay: 250ms; }
+.progress { display: flex; flex-direction: column; gap: 8px; }
+.progress .line { font-size: var(--font-size-3); font-weight: 600; }
+.progress .left-time { font-size: var(--font-size-2); color: var(--gray-11); }
+.progress .bar { height: 6px; }
+.progress .bar > div { transition: width 400ms ease; }
+.progress.failed .line { color: var(--red-11); }
+
+/* ── Welcome ── */
+.welcome {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  padding: 98px 0 24px; transition: opacity 250ms ease, visibility 0s;
+}
+.welcome.gone { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 250ms ease, visibility 0s 250ms; }
+.welcome-text { text-align: center; }
+.welcome h1 { font-size: var(--font-size-7); line-height: 1.2; font-weight: 650; margin: 0; }
+.welcome .prompt { margin: 6px 0 14px; font-size: var(--font-size-4); color: var(--gray-11); }
+.languages {
+  display: flex !important; flex-direction: column; align-items: stretch !important; gap: 0 !important;
+  width: 340px; height: 176px; overflow-y: auto; padding: 4px;
+  border-radius: var(--radius-5); background: var(--color-panel); box-shadow: 0 0 0 1px var(--gray-a5);
+}
+.languages .language {
+  position: relative; display: flex; align-items: center; gap: 12px; padding: 0 12px; min-height: 38px; flex: none;
+  border-radius: var(--radius-4); font-size: var(--font-size-4);
+}
+.languages .language:has(input:checked) { background: var(--gray-a3); font-weight: 600; }
+/* A straight line between rows, inset like the text: a shadow on a rounded row bends at its corners. */
+.languages .language + .language::before {
+  content: ''; position: absolute; top: 0; left: 12px; right: 12px; border-top: 1px solid var(--gray-a3);
+}
+.languages .language:has(input:checked)::before, .languages .language:has(input:checked) + .language::before { display: none; }
+.languages .native { margin-left: auto; color: var(--gray-11); font-weight: 400; }
+.languages hr { width: calc(100% - 24px); border: 0; border-top: 1px solid var(--gray-a6); margin: 6px 12px; flex: none; }
+.welcome .size { margin: 14px 0 12px; font-size: var(--font-size-3); color: var(--gray-11); }
+.welcome .continue { min-width: 160px; }
+
+/* ── The right side: only it changes between steps (a 200 ms fade and slide) ── */
+.right { position: absolute; inset: 0 0 0 var(--column); display: flex; animation: fade 300ms ease-out; }
+.page { flex: 1; display: flex; flex-direction: column; padding: 64px 40px 28px; min-width: 0; animation: in 200ms ease-out; }
+.page.from-left { animation-name: in-back; }
+@keyframes in { from { opacity: 0; transform: translateX(12px); } }
+@keyframes in-back { from { opacity: 0; transform: translateX(-12px); } }
+@keyframes fade { from { opacity: 0; } }
+[dir='rtl'] .page { animation-name: in-back; }
+[dir='rtl'] .page.from-left { animation-name: in; }
+
+.eyebrow { font-size: var(--font-size-3); color: var(--gray-11); margin-bottom: 6px; }
+.page h1 { font-size: var(--font-size-7); line-height: 1.2; font-weight: 650; margin: 0 0 14px; }
+.body { flex: 1; font-size: var(--font-size-5); line-height: 1.45; }
+.body p { margin: 0 0 10px; }
+.body .reason { color: var(--red-11); font-size: var(--font-size-4); overflow-wrap: anywhere; }
+.body .waiting { color: var(--gray-11); }
+
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.foot.end { justify-content: flex-end; }
+
+/* Setup's steps, and Your voice's phrases: a mark, then the words. */
+.steps, .phrases { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; }
+.steps { gap: 12px; font-size: var(--font-size-4); }
+.steps li, .phrases li { display: flex; align-items: flex-start; gap: 10px; }
+.steps .todo { color: var(--gray-10); }
+.steps .now { font-weight: 600; }
+.mark {
+  flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--gray-a7);
+}
+.mark svg { width: 14px; height: 14px; }
+.done > .mark { background: var(--gray-12); color: var(--gray-1); box-shadow: none; animation: pop 280ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+.steps .now > .mark { box-shadow: none; }
+
+.phrases { flex: 1; gap: 6px; margin: -4px -4px 4px; padding: 4px; overflow-y: auto; font-size: var(--font-size-3); line-height: 1.3; }
+.phrases .done { color: var(--gray-11); }
+.phrases .todo { color: var(--gray-10); }
+/* The one to read: darker and thickened by a hairline shadow, not a bolder font, which is wider and would rewrap
+   the line when the emphasis moves. */
+.phrases .now { color: var(--gray-12); text-shadow: 0 0 0.5px currentColor, 0 0 0.5px currentColor; }
+.phrases .now > .mark { box-shadow: inset 0 0 0 2px var(--gray-12); }
+.phrases .now > .mark::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--gray-12); }
+@keyframes pop { from { transform: scale(0.2); opacity: 0; } }
+
+.still *, .still *::before, .still *::after { transition: none !important; animation-duration: 0s !important; animation-delay: 0s !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orb, .left, .under, .welcome, .orb-menu, .progress .bar > div { transition: none !important; }
+  .page, .right, .done > .mark { animation: none !important; }
+}

@@ -1,0 +1,99 @@
+.group {
+  /* Tokens (tokens.md §8). Override per subtree or per instance:
+   *   --radio-fg, --radio-fg-disabled, --radio-ring, --radio-bg,
+   *   --radio-border, --radio-border-disabled, --radio-bg-disabled,
+   *   --radio-check-bg, --radio-check-bg-disabled, --radio-check-fg */
+  --radio-fg: var(--gray-12);
+  --radio-fg-disabled: var(--gray-9);
+  --radio-ring: var(--focus-ring);
+  --radio-bg: var(--color-panel);
+  --radio-border: var(--gray-a7);
+  --radio-border-disabled: var(--gray-a6);
+  --radio-bg-disabled: var(--gray-a3);
+  --radio-check-bg: var(--accent-9);
+  --radio-check-bg-disabled: var(--gray-a6);
+  --radio-check-fg: var(--accent-contrast);
+
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-3);
+  color: var(--radio-fg);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chip:has(.input[data-focus-visible]) {
+  outline: 2px solid var(--radio-ring);
+  outline-offset: 2px;
+}
+
+.chip:has(.input:disabled),
+.chip:has(.input[aria-disabled='true']) {
+  cursor: default;
+  color: var(--radio-fg-disabled);
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Circular indicator (mirrors checkbox.module.css's .box, but round and
+ * with a dot instead of a check). Immediately follows .input in the DOM. */
+.dot {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--radio-border);
+  border-radius: var(--radius-full);
+  background-color: var(--radio-bg);
+  transition:
+    border-color var(--duration-1) var(--ease-out),
+    background-color var(--duration-1) var(--ease-out);
+}
+
+.dot::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--radio-check-fg);
+  opacity: 0;
+  transition: opacity var(--duration-1) var(--ease-out);
+}
+
+.input:checked + .dot {
+  border-color: var(--radio-check-bg);
+  background-color: var(--radio-check-bg);
+}
+
+.input:checked + .dot::after {
+  opacity: 1;
+}
+
+.input:disabled + .dot,
+.input[aria-disabled='true'] + .dot {
+  border-color: var(--radio-border-disabled);
+  background-color: var(--radio-bg-disabled);
+}
+
+.input:disabled:checked + .dot,
+.input[aria-disabled='true']:checked + .dot {
+  background-color: var(--radio-check-bg-disabled);
+}

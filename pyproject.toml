@@ -1,0 +1,27 @@
+[project]
+name = "voice-assistant"
+version = "0.1.0"
+description = "Open-mic voice mode for Claude Code: local speech, a fast talker, answers only your voice"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "claude-agent-sdk>=0.2.173",
+    "en-core-web-sm",
+    "faster-whisper>=1.2.1",
+    "misaki[en]>=0.9.4",
+    "mlx-audio==0.6.2",
+    "onnx>=1.23.2",
+    "phonikud>=0.4.1",
+    "phonikud-onnx>=1.0.6",
+    "pipecat-ai[kokoro,local-smart-turn-v3,mlx-whisper,silero]>=1.13.0",
+    "soundfile>=0.13.1",
+    "speechbrain>=1.1.2",
+]
+
+[project.optional-dependencies]
+# PyAudio, for daemon.py --no-aec only: it builds against PortAudio (brew install portaudio), so it isn't in the
+# default install. uv run --extra no-aec daemon.py --no-aec
+no-aec = ["pipecat-ai[local]>=1.13.0"]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }

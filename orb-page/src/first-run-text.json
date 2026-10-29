@@ -1,0 +1,578 @@
+{
+  "welcome.title": {
+    "en": "Welcome to Voice Assistant",
+    "he": "ברוכים הבאים ל-Voice Assistant",
+    "es": "Te damos la bienvenida a Voice Assistant",
+    "fr": "Bienvenue dans Voice Assistant",
+    "it": "Benvenuto in Voice Assistant",
+    "pt": "Boas-vindas ao Voice Assistant",
+    "hi": "Voice Assistant में आपका स्वागत है"
+  },
+  "welcome.prompt": {
+    "en": "Please select your language.",
+    "he": "באיזו שפה נדבר?",
+    "es": "Elige tu idioma.",
+    "fr": "Choisissez votre langue.",
+    "it": "Scegli la tua lingua.",
+    "pt": "Escolha seu idioma.",
+    "hi": "कृपया अपनी भाषा चुनें।"
+  },
+  "welcome.size": {
+    "en": "{language} · {gb} GB to download",
+    "he": "{language} · {gb} GB להורדה",
+    "es": "{language} · {gb} GB para descargar",
+    "fr": "{language} · {gb} Go à télécharger",
+    "it": "{language} · {gb} GB da scaricare",
+    "pt": "{language} · {gb} GB para baixar",
+    "hi": "{language} · {gb} GB डाउनलोड होगा"
+  },
+  "welcome.experimental": {
+    "en": "{language} (experimental)",
+    "he": "{language} (ניסיוני)",
+    "es": "{language} (en pruebas)",
+    "fr": "{language} (expérimental)",
+    "it": "{language} (sperimentale)",
+    "pt": "{language} (em teste)",
+    "hi": "{language} (प्रयोगात्मक)"
+  },
+  "welcome.continue": {
+    "en": "Continue",
+    "he": "המשך",
+    "es": "Continuar",
+    "fr": "Continuer",
+    "it": "Continua",
+    "pt": "Continuar",
+    "hi": "जारी रखें"
+  },
+  "step.setup": {
+    "en": "Step 2 of 4",
+    "he": "שלב 2 מתוך 4",
+    "es": "Paso 2 de 4",
+    "fr": "Étape 2 sur 4",
+    "it": "Passo 2 di 4",
+    "pt": "Etapa 2 de 4",
+    "hi": "चरण 2 / 4"
+  },
+  "setup.title": {
+    "en": "Getting voice ready",
+    "he": "מכינים את העוזר הקולי",
+    "es": "Preparando la voz",
+    "fr": "Préparation de la voix",
+    "it": "Preparo della voce",
+    "pt": "Preparando a voz",
+    "hi": "वॉइस तैयार हो रहा है"
+  },
+  "setup.body": {
+    "en": "First time only. Take the tour while it downloads.",
+    "he": "רק בפעם הראשונה. אפשר לעבור על הסיור בזמן ההורדה.",
+    "es": "Solo la primera vez. Haz el recorrido mientras se descarga.",
+    "fr": "La première fois seulement. Faites la visite pendant le téléchargement.",
+    "it": "Solo la prima volta. Fai il tour mentre scarica.",
+    "pt": "Só na primeira vez. Faça o tour enquanto baixa.",
+    "hi": "सिर्फ़ पहली बार। डाउनलोड होते हुए टूर देख लें।"
+  },
+  "setup.wait_title": {
+    "en": "Almost ready",
+    "he": "כמעט מוכן",
+    "es": "Casi listo",
+    "fr": "Presque prêt",
+    "it": "Quasi pronto",
+    "pt": "Quase pronto",
+    "hi": "लगभग तैयार"
+  },
+  "setup.after_tour": {
+    "en": "That's the tour. Voice is still getting ready; this screen moves on by itself.",
+    "he": "זה כל הסיור. העוזר הקולי עוד מתכונן, והמסך הזה ימשיך לבד.",
+    "es": "Ese fue el recorrido. La voz aún se está preparando; esta pantalla avanzará sola.",
+    "fr": "C'est tout pour la visite. La voix se prépare encore ; cet écran avancera tout seul.",
+    "it": "Il tour è finito. La voce si sta ancora preparando; questa schermata andrà avanti da sola.",
+    "pt": "Esse foi o tour. A voz ainda está se preparando; esta tela avança sozinha.",
+    "hi": "टूर पूरा हुआ। वॉइस अभी तैयार हो रहा है; यह स्क्रीन अपने आप आगे बढ़ेगी।"
+  },
+  "setup.installing": {
+    "en": "Installing voice",
+    "he": "מתקינים את העוזר הקולי",
+    "es": "Instalando la voz",
+    "fr": "Installation de la voix",
+    "it": "Installazione della voce",
+    "pt": "Instalando a voz",
+    "hi": "वॉइस इंस्टॉल हो रहा है"
+  },
+  "setup.models": {
+    "en": "Downloading speech models",
+    "he": "מורידים מודלים של דיבור",
+    "es": "Descargando los modelos de voz",
+    "fr": "Téléchargement des modèles vocaux",
+    "it": "Download dei modelli vocali",
+    "pt": "Baixando os modelos de fala",
+    "hi": "स्पीच मॉडल डाउनलोड हो रहे हैं"
+  },
+  "setup.starting": {
+    "en": "Starting voice",
+    "he": "מפעילים את העוזר הקולי",
+    "es": "Iniciando la voz",
+    "fr": "Démarrage de la voix",
+    "it": "Avvio della voce",
+    "pt": "Iniciando a voz",
+    "hi": "वॉइस शुरू हो रहा है"
+  },
+  "setup.hide": {
+    "en": "Hide",
+    "he": "הסתרה",
+    "es": "Ocultar",
+    "fr": "Masquer",
+    "it": "Nascondi",
+    "pt": "Ocultar",
+    "hi": "छिपाएँ"
+  },
+  "setup.tour": {
+    "en": "Take the tour",
+    "he": "לסיור",
+    "es": "Hacer el recorrido",
+    "fr": "Faire la visite",
+    "it": "Fai il tour",
+    "pt": "Fazer o tour",
+    "hi": "टूर देखें"
+  },
+  "setup.tour_again": {
+    "en": "Tour again",
+    "he": "שוב לסיור",
+    "es": "Ver el recorrido otra vez",
+    "fr": "Revoir la visite",
+    "it": "Rivedi il tour",
+    "pt": "Ver o tour de novo",
+    "hi": "टूर फिर देखें"
+  },
+  "progress.installing": {
+    "en": "Setting up",
+    "he": "מתקינים",
+    "es": "Configurando",
+    "fr": "Installation",
+    "it": "Configurazione",
+    "pt": "Configurando",
+    "hi": "सेट अप हो रहा है"
+  },
+  "progress.bytes": {
+    "en": "Setting up · {done} of {total} GB",
+    "he": "מתקינים · {done} מתוך {total} GB",
+    "es": "Configurando · {done} de {total} GB",
+    "fr": "Installation · {done} sur {total} Go",
+    "it": "Configurazione · {done} di {total} GB",
+    "pt": "Configurando · {done} de {total} GB",
+    "hi": "सेट अप · {total} में से {done} GB"
+  },
+  "progress.minutes": {
+    "en": "About {n} minutes left",
+    "he": "עוד כ-{n} דקות",
+    "es": "Quedan unos {n} minutos",
+    "fr": "Encore {n} minutes environ",
+    "it": "Mancano circa {n} minuti",
+    "pt": "Faltam cerca de {n} minutos",
+    "hi": "लगभग {n} मिनट बाकी"
+  },
+  "progress.minute": {
+    "en": "About a minute left",
+    "he": "עוד כדקה",
+    "es": "Queda un minuto",
+    "fr": "Encore une minute environ",
+    "it": "Manca circa un minuto",
+    "pt": "Falta cerca de um minuto",
+    "hi": "लगभग एक मिनट बाकी"
+  },
+  "progress.estimating": {
+    "en": "Working out the time left",
+    "he": "מחשבים כמה זמן נשאר",
+    "es": "Calculando el tiempo restante",
+    "fr": "Calcul du temps restant",
+    "it": "Calcolo del tempo rimanente",
+    "pt": "Calculando o tempo restante",
+    "hi": "बाकी समय का अंदाज़ा लगा रहे हैं"
+  },
+  "progress.starting": {
+    "en": "Starting voice",
+    "he": "מפעילים",
+    "es": "Iniciando",
+    "fr": "Démarrage",
+    "it": "Avvio",
+    "pt": "Iniciando",
+    "hi": "शुरू हो रहा है"
+  },
+  "progress.failed": {
+    "en": "Setup stopped",
+    "he": "ההתקנה נעצרה",
+    "es": "La configuración se detuvo",
+    "fr": "L'installation s'est arrêtée",
+    "it": "La configurazione si è fermata",
+    "pt": "A configuração parou",
+    "hi": "सेट अप रुक गया"
+  },
+  "failed.title": {
+    "en": "Setup stopped",
+    "he": "ההתקנה נעצרה",
+    "es": "La configuración se detuvo",
+    "fr": "L'installation s'est arrêtée",
+    "it": "Configurazione interrotta",
+    "pt": "A configuração parou",
+    "hi": "सेट अप रुक गया"
+  },
+  "failed.reason": {
+    "en": "Couldn't download: {reason}",
+    "he": "ההורדה נכשלה: {reason}",
+    "es": "No se pudo descargar: {reason}",
+    "fr": "Échec du téléchargement : {reason}",
+    "it": "Download non riuscito: {reason}",
+    "pt": "Não foi possível baixar: {reason}",
+    "hi": "डाउनलोड नहीं हो सका: {reason}"
+  },
+  "failed.body": {
+    "en": "Check your internet connection, then try again.",
+    "he": "כדאי לבדוק את החיבור לאינטרנט ולנסות שוב.",
+    "es": "Revisa tu conexión a internet y vuelve a intentarlo.",
+    "fr": "Vérifiez votre connexion internet, puis réessayez.",
+    "it": "Controlla la connessione a internet, poi riprova.",
+    "pt": "Verifique sua conexão com a internet e tente de novo.",
+    "hi": "अपना इंटरनेट कनेक्शन जाँचें, फिर से कोशिश करें।"
+  },
+  "failed.retry": {
+    "en": "Retry",
+    "he": "לנסות שוב",
+    "es": "Reintentar",
+    "fr": "Réessayer",
+    "it": "Riprova",
+    "pt": "Tentar de novo",
+    "hi": "फिर कोशिश करें"
+  },
+  "failed.install_reason": {
+    "en": "Couldn't install: {reason}",
+    "he": "ההתקנה נכשלה: {reason}",
+    "es": "No se pudo instalar: {reason}",
+    "fr": "Échec de l'installation : {reason}",
+    "it": "Installazione non riuscita: {reason}",
+    "pt": "Não foi possível instalar: {reason}",
+    "hi": "इंस्टॉल नहीं हो सका: {reason}"
+  },
+  "failed.install_body": {
+    "en": "Check your internet connection, then type /talk in Claude to try again.",
+    "he": "כדאי לבדוק את החיבור לאינטרנט, ואז להקליד ⁦/talk⁩ ב-Claude כדי לנסות שוב.",
+    "es": "Revisa tu conexión a internet y escribe /talk en Claude para volver a intentarlo.",
+    "fr": "Vérifiez votre connexion internet, puis tapez /talk dans Claude pour réessayer.",
+    "it": "Controlla la connessione a internet, poi scrivi /talk in Claude per riprovare.",
+    "pt": "Verifique sua conexão com a internet e digite /talk no Claude para tentar de novo.",
+    "hi": "अपना इंटरनेट कनेक्शन जाँचें, फिर दोबारा कोशिश करने के लिए Claude में /talk लिखें।"
+  },
+  "tour.eyebrow": {
+    "en": "Tour · {n} of {total}",
+    "he": "סיור · {n} מתוך {total}",
+    "es": "Recorrido · {n} de {total}",
+    "fr": "Visite · {n} sur {total}",
+    "it": "Tour · {n} di {total}",
+    "pt": "Tour · {n} de {total}",
+    "hi": "टूर · {total} में से {n}"
+  },
+  "tour.1.title": {
+    "en": "Talk to Claude Code",
+    "he": "מדברים עם Claude Code",
+    "es": "Habla con Claude Code",
+    "fr": "Parlez à Claude Code",
+    "it": "Parla con Claude Code",
+    "pt": "Fale com o Claude Code",
+    "hi": "Claude Code से बात करें"
+  },
+  "tour.1.body": {
+    "en": "Speak normally. Voice answers you itself, or passes your request to the session and tells you how it went.",
+    "he": "מדברים כרגיל. העוזר הקולי עונה בעצמו, או מעביר את הבקשה לסשן ומספר איך זה הלך.",
+    "es": "Habla con normalidad. La voz te responde ella misma, o pasa tu petición a la sesión y te cuenta cómo fue.",
+    "fr": "Parlez normalement. La voix vous répond elle-même, ou transmet votre demande à la session et vous dit comment ça s'est passé.",
+    "it": "Parla normalmente. La voce ti risponde da sola, o passa la richiesta alla sessione e ti dice com'è andata.",
+    "pt": "Fale normalmente. A voz responde sozinha, ou passa seu pedido para a sessão e conta como foi.",
+    "hi": "आराम से बोलिए। वॉइस खुद जवाब देता है, या आपका अनुरोध सेशन को देकर बताता है कि क्या हुआ।"
+  },
+  "tour.2.title": {
+    "en": "Just talk",
+    "he": "פשוט מדברים",
+    "es": "Solo habla",
+    "fr": "Parlez, tout simplement",
+    "it": "Parla e basta",
+    "pt": "É só falar",
+    "hi": "बस बोलिए"
+  },
+  "tour.2.body": {
+    "en": "There's no button to hold. It listens even while it speaks, so you can cut in any time.",
+    "he": "אין כפתור ללחוץ עליו. העוזר מקשיב גם בזמן שהוא מדבר, כך שאפשר לקטוע אותו בכל רגע.",
+    "es": "No hay botón que mantener. Escucha incluso mientras habla, así que puedes interrumpir cuando quieras.",
+    "fr": "Aucun bouton à maintenir. Elle écoute même pendant qu'elle parle, vous pouvez donc l'interrompre à tout moment.",
+    "it": "Nessun pulsante da tenere premuto. Ascolta anche mentre parla, quindi puoi interromperla quando vuoi.",
+    "pt": "Não há botão para segurar. Ela escuta mesmo enquanto fala, então você pode interromper a qualquer momento.",
+    "hi": "कोई बटन दबाए रखना नहीं है। यह बोलते हुए भी सुनता है, तो आप कभी भी बीच में बोल सकते हैं।"
+  },
+  "tour.3.title": {
+    "en": "It works alongside the session",
+    "he": "עובד לצד הסשן",
+    "es": "Trabaja junto a la sesión",
+    "fr": "Elle travaille avec la session",
+    "it": "Lavora accanto alla sessione",
+    "pt": "Trabalha junto com a sessão",
+    "hi": "यह सेशन के साथ काम करता है"
+  },
+  "tour.3.body": {
+    "en": "Your request waits if the session is busy. You hear how the work goes. To stop it, ask voice, not Esc.",
+    "he": "אם הסשן עסוק, הבקשה מחכה לתורה. שומעים איך העבודה מתקדמת. כדי לעצור אותו, מבקשים מהעוזר במקום ללחוץ Esc.",
+    "es": "Si la sesión está ocupada, tu petición espera. Oyes cómo avanza el trabajo. Para detenerla, pídeselo a la voz, no uses Esc.",
+    "fr": "Si la session est occupée, votre demande attend. Vous entendez où en est le travail. Pour l'arrêter, demandez à la voix, pas Esc.",
+    "it": "Se la sessione è occupata, la richiesta aspetta. Senti come procede il lavoro. Per fermarla, chiedilo alla voce, non usare Esc.",
+    "pt": "Se a sessão estiver ocupada, seu pedido espera. Você ouve como o trabalho vai. Para pará-la, peça à voz, não use Esc.",
+    "hi": "सेशन व्यस्त हो तो अनुरोध इंतज़ार करता है। काम की प्रगति सुनाई देती है। रोकना हो तो Esc नहीं, वॉइस से कहें।"
+  },
+  "tour.4.title": {
+    "en": "Your other sessions",
+    "he": "הסשנים האחרים",
+    "es": "Tus otras sesiones",
+    "fr": "Vos autres sessions",
+    "it": "Le altre sessioni",
+    "pt": "Suas outras sessões",
+    "hi": "आपके दूसरे सेशन"
+  },
+  "tour.4.body": {
+    "en": "Voice tells you when another session finishes or needs you. It can open, find, rename or archive sessions.",
+    "he": "העוזר מודיע כשסשן אחר מסיים או מחכה לתשובה. הוא יכול לפתוח, למצוא, לשנות שם או להעביר לארכיון.",
+    "es": "La voz te avisa cuando otra sesión termina o te necesita. Puede abrir, buscar, renombrar o archivar sesiones.",
+    "fr": "La voix vous prévient quand une autre session finit ou a besoin de vous. Elle ouvre, trouve, renomme ou archive les sessions.",
+    "it": "La voce ti avvisa quando un'altra sessione finisce o ha bisogno di te. Può aprire, trovare, rinominare o archiviare sessioni.",
+    "pt": "A voz avisa quando outra sessão termina ou precisa de você. Ela pode abrir, achar, renomear ou arquivar sessões.",
+    "hi": "दूसरा सेशन पूरा हो या आपका इंतज़ार करे, तो वॉइस बताता है। यह सेशन खोल, ढूँढ, नाम बदल या आर्काइव कर सकता है।"
+  },
+  "tour.5.title": {
+    "en": "The orb",
+    "he": "הכדור",
+    "es": "El orbe",
+    "fr": "L'orbe",
+    "it": "La sfera",
+    "pt": "O orbe",
+    "hi": "ऑर्ब"
+  },
+  "tour.5.body": {
+    "en": "The orb shows if voice is listening, thinking or speaking. Drag it anywhere; near a screen edge it snaps into place.",
+    "he": "הכדור מראה אם העוזר מקשיב, חושב או מדבר. אפשר לגרור אותו לכל מקום, וליד קצה המסך הוא נצמד.",
+    "es": "El orbe muestra si la voz escucha, piensa o habla. Arrástralo a cualquier sitio; cerca de un borde se ajusta solo.",
+    "fr": "L'orbe montre si la voix écoute, réfléchit ou parle. Déplacez-le où vous voulez ; près d'un bord, il s'y accroche.",
+    "it": "La sfera mostra se la voce ascolta, pensa o parla. Trascinala dove vuoi; vicino a un bordo dello schermo si aggancia.",
+    "pt": "O orbe mostra se a voz está ouvindo, pensando ou falando. Arraste para onde quiser; perto da borda, ele se encaixa.",
+    "hi": "ऑर्ब दिखाता है कि वॉइस सुन, सोच या बोल रहा है। इसे कहीं भी खींचें; स्क्रीन के किनारे पर यह चिपक जाता है।"
+  },
+  "tour.6.title": {
+    "en": "Right-click the orb",
+    "he": "לחיצה ימנית על הכדור",
+    "es": "Clic derecho en el orbe",
+    "fr": "Clic droit sur l'orbe",
+    "it": "Clic destro sulla sfera",
+    "pt": "Clique direito no orbe",
+    "hi": "ऑर्ब पर राइट-क्लिक"
+  },
+  "tour.6.body": {
+    "en": "Language, voice, the transcript and more are in its menu. Or skip the menu: say any of them out loud.",
+    "he": "שפה, קול, התמליל ועוד נמצאים בתפריט שלו. או בלי תפריט: פשוט אומרים כל אחד מהם בקול.",
+    "es": "Idioma, voz, la transcripción y más están en su menú. O sin menú: di cualquiera de ellos en voz alta.",
+    "fr": "Langue, voix, transcription et plus sont dans son menu. Ou sans menu : dites simplement à voix haute ce que vous voulez.",
+    "it": "Lingua, voce, trascrizione e altro sono nel suo menu. Oppure senza menu: di' ad alta voce quello che vuoi.",
+    "pt": "Idioma, voz, a transcrição e mais estão no menu dele. Ou sem menu: diga qualquer um deles em voz alta.",
+    "hi": "भाषा, आवाज़, ट्रांसक्रिप्ट वगैरह इसके मेन्यू में हैं। या मेन्यू छोड़ें: इनमें से कुछ भी बोलकर कहें।"
+  },
+  "tour.7.title": {
+    "en": "It stays on your Mac",
+    "he": "הכול נשאר על ה-Mac",
+    "es": "Todo se queda en tu Mac",
+    "fr": "Tout reste sur votre Mac",
+    "it": "Tutto resta sul tuo Mac",
+    "pt": "Tudo fica no seu Mac",
+    "hi": "सब आपके Mac पर रहता है"
+  },
+  "tour.7.body": {
+    "en": "Hearing you and the voice that answers both run on this Mac. Only the words go to Claude.",
+    "he": "זיהוי הדיבור והקול שעונה רצים על ה-Mac הזה. רק המילים נשלחות ל-Claude.",
+    "es": "Entenderte y la voz que responde funcionan en este Mac. Solo las palabras van a Claude.",
+    "fr": "La reconnaissance de votre voix et la voix qui répond tournent sur ce Mac. Seuls les mots vont à Claude.",
+    "it": "Il riconoscimento della tua voce e la voce che risponde girano su questo Mac. Solo le parole vanno a Claude.",
+    "pt": "Ouvir você e a voz que responde rodam neste Mac. Só as palavras vão para o Claude.",
+    "hi": "आपको सुनना और जवाब देने वाली आवाज़, दोनों इसी Mac पर चलते हैं। सिर्फ़ शब्द Claude को जाते हैं।"
+  },
+  "tour.back": {
+    "en": "Back",
+    "he": "הקודם",
+    "es": "Atrás",
+    "fr": "Retour",
+    "it": "Indietro",
+    "pt": "Voltar",
+    "hi": "पीछे"
+  },
+  "tour.next": {
+    "en": "Next",
+    "he": "הבא",
+    "es": "Siguiente",
+    "fr": "Suivant",
+    "it": "Avanti",
+    "pt": "Próximo",
+    "hi": "आगे"
+  },
+  "tour.done": {
+    "en": "Done",
+    "he": "סיום",
+    "es": "Listo",
+    "fr": "Terminé",
+    "it": "Fatto",
+    "pt": "Concluir",
+    "hi": "हो गया"
+  },
+  "ready.eyebrow": {
+    "en": "Ready",
+    "he": "מוכן",
+    "es": "Listo",
+    "fr": "Prêt",
+    "it": "Pronto",
+    "pt": "Pronto",
+    "hi": "तैयार"
+  },
+  "ready.title": {
+    "en": "Voice is ready",
+    "he": "העוזר הקולי מוכן",
+    "es": "La voz está lista",
+    "fr": "La voix est prête",
+    "it": "La voce è pronta",
+    "pt": "A voz está pronta",
+    "hi": "वॉइस तैयार है"
+  },
+  "ready.body": {
+    "en": "One last step: it learns your voice, so it answers only you. Eight short phrases.",
+    "he": "צעד אחרון: הוא לומד להכיר את הקול שלך, כדי לענות רק לך. שמונה משפטים קצרים.",
+    "es": "Un último paso: aprende tu voz para responder solo a ti. Ocho frases cortas.",
+    "fr": "Une dernière étape : elle apprend votre voix pour ne répondre qu'à vous. Huit phrases courtes.",
+    "it": "Un ultimo passo: impara la tua voce, così risponde solo a te. Otto frasi brevi.",
+    "pt": "Um último passo: ela aprende sua voz para responder só a você. Oito frases curtas.",
+    "hi": "एक आख़िरी कदम: यह आपकी आवाज़ पहचानना सीखता है, ताकि सिर्फ़ आपको जवाब दे। आठ छोटे वाक्य।"
+  },
+  "ready.later": {
+    "en": "Later",
+    "he": "אחר כך",
+    "es": "Más tarde",
+    "fr": "Plus tard",
+    "it": "Più tardi",
+    "pt": "Depois",
+    "hi": "बाद में"
+  },
+  "ready.learn": {
+    "en": "Learn my voice",
+    "he": "להכיר את הקול שלי",
+    "es": "Aprender mi voz",
+    "fr": "Apprendre ma voix",
+    "it": "Impara la mia voce",
+    "pt": "Aprender minha voz",
+    "hi": "मेरी आवाज़ सीखें"
+  },
+  "voice.eyebrow": {
+    "en": "Your voice",
+    "he": "הקול שלך",
+    "es": "Tu voz",
+    "fr": "Votre voix",
+    "it": "La tua voce",
+    "pt": "Sua voz",
+    "hi": "आपकी आवाज़"
+  },
+  "voice.title": {
+    "en": "Read this aloud",
+    "he": "קוראים בקול רם",
+    "es": "Lee esto en voz alta",
+    "fr": "Lisez ceci à voix haute",
+    "it": "Leggi ad alta voce",
+    "pt": "Leia em voz alta",
+    "hi": "इसे ज़ोर से पढ़ें"
+  },
+  "voice.waiting": {
+    "en": "Getting the phrases ready",
+    "he": "מכינים את המשפטים",
+    "es": "Preparando las frases",
+    "fr": "Préparation des phrases",
+    "it": "Preparo delle frasi",
+    "pt": "Preparando as frases",
+    "hi": "वाक्य तैयार हो रहे हैं"
+  },
+  "voice.skip": {
+    "en": "Skip",
+    "he": "דילוג",
+    "es": "Omitir",
+    "fr": "Passer",
+    "it": "Salta",
+    "pt": "Pular",
+    "hi": "छोड़ें"
+  },
+  "voice.cancel": {
+    "en": "Cancel",
+    "he": "ביטול",
+    "es": "Cancelar",
+    "fr": "Annuler",
+    "it": "Annulla",
+    "pt": "Cancelar",
+    "hi": "रद्द करें"
+  },
+  "done.title": {
+    "en": "Got it",
+    "he": "זהו, נקלט",
+    "es": "Listo, ya está",
+    "fr": "C'est noté",
+    "it": "Fatto",
+    "pt": "Pronto, aprendi",
+    "hi": "समझ गया"
+  },
+  "done.body": {
+    "en": "Voice answers only you now. Just start talking.",
+    "he": "מעכשיו העוזר עונה רק לך. אפשר פשוט להתחיל לדבר.",
+    "es": "Ahora la voz solo te responde a ti. Empieza a hablar.",
+    "fr": "La voix ne répond plus qu'à vous. Commencez à parler.",
+    "it": "Ora la voce risponde solo a te. Inizia a parlare.",
+    "pt": "Agora a voz responde só a você. É só começar a falar.",
+    "hi": "अब वॉइस सिर्फ़ आपको जवाब देता है। बस बोलना शुरू करें।"
+  },
+  "done.again_body": {
+    "en": "Voice has learned your voice again.",
+    "he": "העוזר למד שוב את הקול שלך.",
+    "es": "La voz ha vuelto a aprender tu voz.",
+    "fr": "La voix a de nouveau appris votre voix.",
+    "it": "La voce ha imparato di nuovo la tua voce.",
+    "pt": "A voz aprendeu sua voz de novo.",
+    "hi": "वॉइस ने आपकी आवाज़ फिर से सीख ली।"
+  },
+  "done.later_title": {
+    "en": "Voice is on",
+    "he": "העוזר הקולי פועל",
+    "es": "La voz está activa",
+    "fr": "La voix est active",
+    "it": "La voce è attiva",
+    "pt": "A voz está ativa",
+    "hi": "वॉइस चालू है"
+  },
+  "done.later_body": {
+    "en": "For now it answers any voice. Learn yours any time from the orb's menu, under More.",
+    "he": "בינתיים הוא עונה לכל קול. אפשר ללמד אותו את הקול שלך מתי שרוצים, בתפריט הכדור, תחת More.",
+    "es": "Por ahora responde a cualquier voz. Enséñale la tuya cuando quieras desde el menú del orbe, en More.",
+    "fr": "Pour l'instant, elle répond à toutes les voix. Apprenez-lui la vôtre quand vous voulez, menu de l'orbe, sous More.",
+    "it": "Per ora risponde a qualsiasi voce. Insegnale la tua quando vuoi dal menu della sfera, sotto More.",
+    "pt": "Por enquanto ela responde a qualquer voz. Ensine a sua quando quiser no menu do orbe, em More.",
+    "hi": "अभी यह किसी भी आवाज़ को जवाब देता है। अपनी आवाज़ कभी भी ऑर्ब के मेन्यू में More से सिखाएँ।"
+  },
+  "done.start": {
+    "en": "Start talking",
+    "he": "מתחילים לדבר",
+    "es": "Empezar a hablar",
+    "fr": "Commencer à parler",
+    "it": "Inizia a parlare",
+    "pt": "Começar a falar",
+    "hi": "बात शुरू करें"
+  },
+  "done.close": {
+    "en": "Done",
+    "he": "סיום",
+    "es": "Listo",
+    "fr": "Terminé",
+    "it": "Fatto",
+    "pt": "Concluir",
+    "hi": "हो गया"
+  }
+}

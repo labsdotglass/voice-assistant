@@ -1,0 +1,122 @@
+{
+  "languages": [
+    {
+      "code": "en",
+      "label": "English",
+      "native": "English",
+      "whisper": "en",
+      "kokoro": "en-us",
+      "model": null,
+      "download_gb": 4.0,
+      "experimental": false,
+      "repos": {
+        "mlx-community/whisper-large-v3-mlx": 3083520968,
+        "Systran/faster-whisper-base.en": 147769510,
+        "mlx-community/Kokoro-82M-bf16": 355322783,
+        "speechbrain/spkrec-ecapa-voxceleb": 88983473
+      }
+    },
+    {
+      "code": "he",
+      "label": "Hebrew",
+      "native": "עברית",
+      "whisper": "he",
+      "kokoro": "he",
+      "model": "el-gast/ivrit-v3-turbo-q8-mlx",
+      "download_gb": 2.8,
+      "experimental": true,
+      "repos": {
+        "el-gast/ivrit-v3-turbo-q8-mlx": 863660721,
+        "Systran/faster-whisper-small": 486212372,
+        "thewh1teagle/kokoro-hebrew-nc": 326030429,
+        "thewh1teagle/phonikud-onnx": 307844158,
+        "mlx-community/Kokoro-82M-bf16": 355322783,
+        "speechbrain/spkrec-ecapa-voxceleb": 88983473
+      }
+    },
+    {
+      "code": "es",
+      "label": "Spanish",
+      "native": "Español",
+      "whisper": "es",
+      "kokoro": "es",
+      "model": null,
+      "download_gb": 4.4,
+      "experimental": false,
+      "repos": {
+        "mlx-community/whisper-large-v3-mlx": 3083520968,
+        "Systran/faster-whisper-small": 486212372,
+        "mlx-community/Kokoro-82M-bf16": 355322783,
+        "speechbrain/spkrec-ecapa-voxceleb": 88983473
+      }
+    },
+    {
+      "code": "fr",
+      "label": "French",
+      "native": "Français",
+      "whisper": "fr",
+      "kokoro": "fr-fr",
+      "model": null,
+      "download_gb": 4.4,
+      "experimental": false,
+      "repos": {
+        "mlx-community/whisper-large-v3-mlx": 3083520968,
+        "Systran/faster-whisper-small": 486212372,
+        "mlx-community/Kokoro-82M-bf16": 355322783,
+        "speechbrain/spkrec-ecapa-voxceleb": 88983473
+      }
+    },
+    {
+      "code": "it",
+      "label": "Italian",
+      "native": "Italiano",
+      "whisper": "it",
+      "kokoro": "it",
+      "model": null,
+      "download_gb": 4.4,
+      "experimental": false,
+      "repos": {
+        "mlx-community/whisper-large-v3-mlx": 3083520968,
+        "Systran/faster-whisper-small": 486212372,
+        "mlx-community/Kokoro-82M-bf16": 355322783,
+        "speechbrain/spkrec-ecapa-voxceleb": 88983473
+      }
+    },
+    {
+      "code": "pt",
+      "label": "Portuguese",
+      "native": "Português",
+      "whisper": "pt",
+      "kokoro": "pt-br",
+      "model": null,
+      "download_gb": 4.4,
+      "experimental": false,
+      "repos": {
+        "mlx-community/whisper-large-v3-mlx": 3083520968,
+        "Systran/faster-whisper-small": 486212372,
+        "mlx-community/Kokoro-82M-bf16": 355322783,
+        "speechbrain/spkrec-ecapa-voxceleb": 88983473
+      }
+    },
+    {
+      "code": "hi",
+      "label": "Hindi",
+      "native": "हिन्दी",
+      "whisper": "hi",
+      "kokoro": "hi",
+      "model": null,
+      "download_gb": 4.4,
+      "experimental": false,
+      "repos": {
+        "mlx-community/whisper-large-v3-mlx": 3083520968,
+        "Systran/faster-whisper-small": 486212372,
+        "mlx-community/Kokoro-82M-bf16": 355322783,
+        "speechbrain/spkrec-ecapa-voxceleb": 88983473
+      }
+    }
+  ],
+  "shared_files": {
+    "kokoro-v1.0.onnx": 325532387,
+    "voices-v1.0.bin": 28214398
+  }
+}

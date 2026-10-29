@@ -1,0 +1,118 @@
+/* Layer 3 — Semantic tokens.
+ * Deliberately tiny. Anything expressible as `var(--gray-N)` lives in
+ * component CSS instead, by step-number convention.
+ *
+ * Step vocabulary (Radix-inspired):
+ *   1, 2     — app / panel backgrounds
+ *   3, 4, 5  — component bg (rest / hover / active)
+ *   6        — non-interactive border (separator)
+ *   7        — interactive border, focus base
+ *   8        — hovered border
+ *   9, 10    — solid fills (filled buttons, badges)
+ *   11       — low-contrast text
+ *   12       — high-contrast text
+ */
+
+/* Two-surface hierarchy — the "chrome + paper" model:
+ *   chrome (`--color-background`) — app frame: sidebar, view headers, wells. Off-white
+ *                               in light (gray-2 ≈ #f9f9fb), deepest in dark.
+ *   paper  (`--color-panel`)   — the content area itself, near-white in light,
+ *                               lifted in dark. Content carries the visual weight;
+ *                               chrome recedes behind a hairline.
+ *
+ * Invariant: panel is ALWAYS lighter than background, in both modes. */
+
+/* Light values are declared for `.light` as well as `:root` so a `.light`
+ * subtree inside a `.dark` page resolves them again below the dark ones,
+ * exactly as the colour files do. tokens.md §7. */
+:root,
+.light,
+.light-theme {
+  color-scheme: light;
+
+  --color-background: var(--gray-2);
+  --color-panel: var(--gray-1);
+  /* Modal scrim. Always a black alpha (like elevation) so it darkens content
+   * in BOTH themes — `--gray-a*` would flip to a white glow in dark mode.
+   * Literal is sanctioned here per tokens.md §4 (semantic.css owns pre-baked
+   * pairings). */
+  --color-overlay: rgb(0 0 0 / 0.45);
+
+  /* Blue regardless of the active hue — the accent is now black/neutral, and a
+   * grey focus ring reads as low-signal. Pinned to the blue scale so keyboard
+   * focus stays clearly visible on black, neutral, and coloured controls alike.
+   * Step 10 (not 8) in light: WCAG 1.4.11 needs a 3:1 non-text contrast for
+   * the ring, and blue-8 measured only ~2.27:1 on the light gray-1/gray-2
+   * surfaces; blue-10 lands at ~3.54:1. The step-10..12 range is where the
+   * Radix map first guarantees a usable-contrast indicator; step 8 makes no
+   * such promise. Dark keeps blue-8 (see .dark below) — it already measured
+   * ~3.53:1 there, so it needs no bump, and holding step 8 preserves the
+   * established dark ring rather than over-brightening it to blue-10's
+   * ~6.76:1. Pinned per-mode by styles/focus-ring-contrast.test.ts. */
+  --focus-ring: var(--blue-10);
+
+  /* Page content measures. Two canonical columns keep every rail screen
+   * aligned: `reading` for forms / prose / the document editor, `page` for
+   * index & list views. Dense data tables opt out to `wide`. Header and
+   * body of a screen share one measure so the title lines up with its
+   * content. */
+  --layout-reading: 42.5rem; /* 680px — forms, settings, document editor */
+  --layout-page: 52rem;      /* 832px — list and detail screens */
+  --layout-wide: 75rem;      /* 1200px — dense tables (users, calibration) */
+
+  /* Rail-screen header band. Fixed so every screen's hairline lands on the
+   * same baseline whether or not the header carries controls — sized off the
+   * tallest thing it holds (a 24px `sm` Button) plus its block padding. */
+  --layout-header-height: 3rem; /* 48px = 24px control + 2 × space-3 */
+
+  /* Hairline edge layer composed into every elevation — a very subtle
+   * outline that gives borderless surfaces a crisp edge. Tuned per mode.
+   * Moved here from primitives.css so light and dark sit side by side. */
+  --shadow-edge: 0 0 1px 0px rgb(0 0 0 / 0.2);
+  --shadow-1: var(--shadow-edge), 0 1px 1px rgb(0 0 0 / 0.03);
+  --shadow-2: var(--shadow-edge), 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 1px rgb(0 0 0 / 0.03);
+  --shadow-3: var(--shadow-edge), 0 2px 4px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.06);
+  --shadow-4: var(--shadow-edge), 0 4px 8px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.1);
+  --shadow-5: var(--shadow-edge), 0 8px 16px rgb(0 0 0 / 0.06), 0 24px 48px rgb(0 0 0 / 0.16);
+
+  /* Card edge. Light: a raised resting surface, defined by elevation not a
+   * border. Dark gets an inset hairline ring instead (see .dark below). Keyed
+   * here as a per-mode token — resolved on the element via the `.light`
+   * re-declaration — rather than by a `:global(.dark)` ancestor selector in the
+   * component, so a `.light` appearance island inside a `.dark` page reads the
+   * light edge. tokens.md §7. */
+  --card-edge: var(--shadow-2);
+}
+
+.dark,
+.dark-theme {
+  color-scheme: dark;
+
+  /* Keep the original blue-8 ring in dark — it already meets WCAG 1.4.11 at
+   * ~3.53:1 against gray-1, so it needs no bump, and holding step 8 avoids
+   * over-brightening the established dark ring to blue-10. Light stays on
+   * blue-10 (see :root). */
+  --focus-ring: var(--blue-8);
+
+  --color-background: var(--gray-1);
+  --color-panel: var(--gray-2);
+  /* Deeper scrim in dark mode — content is already dark, so a stronger
+   * black is needed to separate the modal from the page behind it. */
+  --color-overlay: rgb(0 0 0 / 0.6);
+
+  /* Shadows are always black-alpha (see the light block above). In dark
+   * mode the surfaces are darker, so the shadow needs stronger alpha to
+   * remain visible — same layered structure as light, saturation scaled up. */
+  --shadow-edge: 0 0 1px 0px rgb(0 0 0 / 0.2);
+  --shadow-1: var(--shadow-edge), 0 1px 1px rgb(0 0 0 / 0.18);
+  --shadow-2: var(--shadow-edge), 0 1px 2px rgb(0 0 0 / 0.24), 0 1px 1px rgb(0 0 0 / 0.16);
+  --shadow-3: var(--shadow-edge), 0 2px 4px rgb(0 0 0 / 0.2), 0 4px 12px rgb(0 0 0 / 0.28);
+  --shadow-4: var(--shadow-edge), 0 4px 8px rgb(0 0 0 / 0.22), 0 8px 24px rgb(0 0 0 / 0.34);
+  --shadow-5: var(--shadow-edge), 0 8px 16px rgb(0 0 0 / 0.28), 0 24px 48px rgb(0 0 0 / 0.46);
+
+  /* Every --shadow-* layer is black alpha, so on the near-black dark surface the
+   * elevation is invisible and a card is left with only its low-alpha fill to
+   * define it. A light inset ring reads on a dark ground the way a shadow reads
+   * on a light one. */
+  --card-edge: 0 0 0 1px var(--gray-a6) inset;
+}

@@ -1,0 +1,191 @@
+/* Button — the shared clickable primitive. Hue-aware (via data-accent-color → --accent-*),
+ * four variants, three sizes. Layer-4 component vars are declared on .root and
+ * overridden by the variant/size attribute selectors.
+ * Tokens: --btn-height, --btn-px, --btn-icon-inset, --btn-radius,
+ * --btn-font-size, --btn-bg, --btn-fg, --btn-border, --btn-bg-hover,
+ * --btn-border-hover, --btn-fg-hover, --btn-ring. */
+
+.root {
+  /* Compact control metrics: 28px height, 13px medium text, 6px radius.
+   * No pills — rounded rects only. */
+  --btn-height: 28px;
+  --btn-px: var(--space-3);
+  /* Optical trim on the leading-icon side (no 2px step in the scale). */
+  --btn-icon-inset: 2px;
+  --btn-radius: var(--radius-3);
+  --btn-font-size: var(--font-size-3);
+
+  --btn-bg: var(--accent-9);
+  --btn-fg: var(--accent-contrast);
+  --btn-border: transparent;
+  --btn-bg-hover: var(--accent-10);
+  --btn-border-hover: transparent;
+  --btn-fg-hover: var(--accent-12);
+  --btn-ring: var(--focus-ring);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: var(--space-2);
+  height: var(--btn-height);
+  padding: 0 var(--btn-px);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--btn-radius);
+  background-color: var(--btn-bg);
+  color: var(--btn-fg);
+  font-family: var(--default-font-family);
+  font-size: var(--btn-font-size);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  /* A Button rendered as an anchor (render={<a/>} / router links) must not
+   * inherit the UA underline; plain-variant hover re-adds its own. */
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: var(--letter-spacing-3);
+  transition:
+    background-color var(--duration-1) var(--ease-out),
+    border-color var(--duration-1) var(--ease-out),
+    color var(--duration-1) var(--ease-out);
+}
+
+.root:hover {
+  background-color: var(--btn-bg-hover);
+  border-color: var(--btn-border-hover);
+}
+
+.root:focus-visible {
+  outline: 2px solid var(--btn-ring);
+  outline-offset: 2px;
+}
+
+/* --- Variants --------------------------------------------------------------- */
+
+/* Secondary: hairline border, dark label, hover fills a whisper of
+ * background rather than sharpening the border. */
+.root[data-variant="outline"] {
+  --btn-bg: transparent;
+  --btn-fg: var(--accent-12);
+  --btn-border: var(--accent-a6);
+  --btn-bg-hover: var(--accent-a2);
+  --btn-border-hover: var(--accent-a7);
+}
+
+.root[data-variant="ghost"] {
+  --btn-bg: transparent;
+  --btn-fg: var(--accent-12);
+  --btn-border: transparent;
+  --btn-bg-hover: var(--accent-a3);
+  --btn-border-hover: transparent;
+}
+
+.root[data-variant="plain"] {
+  --btn-px: var(--space-1);
+  --btn-bg: transparent;
+  --btn-fg: var(--accent-11);
+  --btn-border: transparent;
+  --btn-bg-hover: transparent;
+  --btn-border-hover: transparent;
+}
+
+.root[data-variant="plain"]:hover {
+  color: var(--btn-fg-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Solid gray: gray-9 is a mid-grey, so white-on-it fails AA at 13px. Use the
+ * bookend fill instead (gray-1 on gray-12), the same call Badge makes, so the
+ * two never disagree. A gray solid button therefore looks like a neutral one. */
+.root[data-variant="solid"][data-accent-color="gray"] {
+  --btn-bg: var(--gray-12);
+  --btn-fg: var(--gray-1);
+  --btn-bg-hover: color-mix(in srgb, var(--gray-12), var(--gray-11) 35%);
+}
+
+/* --- Sizes ------------------------------------------------------------------ */
+
+.root[data-size="sm"] {
+  --btn-height: 24px;
+  --btn-px: var(--space-2);
+  --btn-font-size: var(--font-size-2);
+}
+
+.root[data-size="lg"] {
+  --btn-height: 32px;
+  --btn-px: var(--space-4);
+  --btn-font-size: var(--font-size-3);
+}
+
+/* Square icon-only: width tracks height, no horizontal padding. */
+.root[data-icon-only] {
+  --btn-px: 0;
+  width: var(--btn-height);
+  flex: none;
+}
+
+/* Leading-icon compensation: an icon carries its own optical whitespace, so a
+ * full text-side padding on that edge looks lopsided. Trim the icon side by the
+ * small --btn-icon-inset (a full spacing step over-corrects). All our icon
+ * buttons lead with the icon; icon-only buttons are exempt. */
+.root:not([data-icon-only]):has(.label > svg:first-child) {
+  padding-inline-start: calc(var(--btn-px) - var(--btn-icon-inset));
+}
+
+/* --- States ----------------------------------------------------------------- */
+
+.root:disabled,
+.root[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* A rendered <a> (link-button) can't use native `disabled`; kill pointer
+ * interaction so an aria-disabled link is genuinely inert, not just labelled. */
+.root[aria-disabled="true"] {
+  pointer-events: none;
+}
+
+/* Solid fills read heavier when dimmed, so fade them a bit further. */
+.root[data-variant="solid"]:disabled,
+.root[data-variant="solid"][aria-disabled="true"] {
+  opacity: 0.4;
+}
+
+.root:disabled:hover,
+.root[aria-disabled="true"]:hover {
+  background-color: var(--btn-bg);
+  border-color: var(--btn-border);
+  color: var(--btn-fg);
+  text-decoration: none;
+}
+
+.root[data-loading] {
+  cursor: progress;
+}
+
+.root[data-loading] .label {
+  opacity: 0.7;
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  column-gap: var(--space-1);
+}
+
+.spinner {
+  width: 0.9em;
+  height: 0.9em;
+  flex: none;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.7;
+  animation: buttonSpin 0.7s linear infinite;
+}
+
+@keyframes buttonSpin {
+  to { transform: rotate(360deg); }
+}

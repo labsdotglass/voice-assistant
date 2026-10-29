@@ -1,0 +1,18 @@
+out/
+.venv/
+__pycache__/
+bin/
+orb-page/node_modules
+# The built orb page ships (orb.html, one self-contained file); the rest of the build doesn't
+orb-page/dist/*
+!orb-page/dist/orb.html
+!orb-page/dist/onboarding.html
+.claude-plugin/types/
+# A local link from the mod's old folder to the repo root, for sessions started before the move
+mod/
+# Voice recordings for the speaker-ID test: personal, never committed
+spike/speakers/
+# Worktrees for parallel sessions (inside the project; saving in them doesn't reload the mod)
+.claude/worktrees/
+# macOS folder view settings
+.DS_Store

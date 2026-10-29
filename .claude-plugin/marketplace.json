@@ -1,0 +1,14 @@
+{
+  "name": "voice-assistant",
+  "description": "Voice mode for Claude Code: talk to your session out loud.",
+  "owner": {
+    "name": "Glass Labs"
+  },
+  "plugins": [
+    {
+      "name": "voice-mode",
+      "source": "./",
+      "description": "Open-mic voice mode for Claude Code: talk to your session while it works, with a fast talker, local Whisper and Kokoro, echo cancellation, a floating orb, and answers only for your enrolled voice."
+    }
+  ]
+}

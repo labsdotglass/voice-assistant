@@ -1,0 +1,584 @@
+/* The pulse is one inheriting scalar, animated on .root and *read* by the
+ * sphere (scale 1 + p) and the grain (scale 1 / (1 + p)) — so the two stay
+ * exact inverses for free, however jagged the cadence gets. Both are
+ * registered so they interpolate as numbers; an unregistered custom
+ * property is an untyped token and would step between values. Registration
+ * is global (there is no module scope for @property), hence the public,
+ * component-prefixed names.
+ *
+ * --ai-avatar-pulse      live amplitude this frame (driven by @keyframes speak)
+ * --ai-avatar-pulse-peak per-state ceiling the cadence is scaled against
+ */
+@property --ai-avatar-pulse {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --ai-avatar-pulse-peak {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+/* Consumer-supplied amplitude (see the `level` prop). Registered so the
+ * calc below is typed and so an absent value resolves to 0 rather than
+ * poisoning the whole declaration. */
+@property --ai-avatar-level {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+/* The public palette vars, registered so a colour change — a consumer
+ * remap (e.g. a host greying the orb for an error) or a theme switch —
+ * can *transition* the colour instead of snapping it; see
+ * --_palette-transition on .root. `inherits: true` because .sphere/.blob read these by inheritance,
+ * not by re-declaring them. A registered custom property's initial-value
+ * must be a literal colour (var() is rejected there), so each one below
+ * is a plain fallback approximating that var's default in `.root` — the
+ * real value always comes from the `.root` declaration; this only matters
+ * if a consumer strips the var entirely. */
+@property --ai-avatar-color-1 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #0090ff; /* approximates --blue-9 */
+}
+
+@property --ai-avatar-color-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #3e63dd; /* approximates --indigo-9 (the default speaking accent) */
+}
+
+@property --ai-avatar-color-3 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #e6f4fe; /* approximates --blue-3 */
+}
+
+/*
+ * AiAvatar — a circle of drifting, blurred gradient "clouds".
+ *
+ * Geometry is container-relative (cqmin / %): the same markup renders a
+ * 24px inline chip and a full-screen speaking orb. The blobs animate
+ * `transform`/`opacity` (compositor-only) but sit *inside* the filtered
+ * `.field`, so its `blur()` re-evaluates every frame the blobs move —
+ * this is not a static, paid-once cost. Cost scales with the field's
+ * rendered pixel size: keep one hero-size instance on screen at a time,
+ * and if profiling shows it's expensive, reduce `--ai-avatar-blur` and/or
+ * `blobs`. The cadence loop stays mounted in every state (at zero
+ * amplitude outside `speaking`) so state changes can ease rather than
+ * snap. It animates a custom property, which is a main-thread style
+ * recalc per frame — one root plus two dependent transforms, next to
+ * nothing beside the field's per-frame blur, and the price of a pulse
+ * shape that isn't a sine wave.
+ *
+ * Component vars — override per instance:
+ *   --ai-avatar-color-1/2/3   gradient palette (body / cycling accent / cloud)
+ *   --ai-avatar-speed         pulse-cadence speed multiplier (the cadence
+ *                             period is fixed across states — only its
+ *                             amplitude changes — so state changes never
+ *                             re-time a running loop)
+ *   --ai-avatar-pulse-peak    peak pulse amplitude (scale = 1 + peak); set
+ *                             per state by the component, overridable to
+ *                             retune how loud `speaking` reads
+ *   --ai-avatar-intensity     blob opacity (state legibility w/o motion)
+ *   --ai-avatar-blend         blob blend mode (how overlaps mix color;
+ *                             applied on the blob wrappers — see .mover)
+ *   --ai-avatar-blur          field blur radius
+ *   --ai-avatar-grain-opacity noise overlay strength (0 disables)
+ */
+
+.root {
+  --ai-avatar-color-1: var(--blue-9);
+  /* Accent cast (a slow-orbiting blob / shader cast). Its ALPHA gates it, so a
+   * near-zero alpha = no accent — the default in every state but speaking,
+   * which re-pins it below. NB: this is the accent hue at 0.01 alpha, NOT the
+   * `transparent` keyword: at 0 alpha the rgb collapses to black, so the accent
+   * would fade THROUGH black; keeping a hair of alpha preserves the hue. 0.01
+   * is imperceptible. color-2 is deliberately NOT in the transition list above
+   * — a registered <color> won't interpolate its alpha out of a near-transparent
+   * value across gamuts, so the WebGPU renderer eases the accent's presence
+   * itself (ai-avatar-gl.tsx: easedAccentA); the CSS fallback snaps it. To show
+   * an accent in another state, set a per-state colour; to hide it, mix to
+   * `transparent 99%`. */
+  --ai-avatar-color-2: color-mix(in srgb, var(--indigo-9), transparent 99%);
+  /* Bright "cloud" — deliberately tinted (not plain gray-1) so the orb's
+   * rim stays visible against a gray-1 surface (--color-panel) instead of
+   * dissolving into it. This is the ONE role that needs a dark-mode pin (see
+   * below): steps 9 hold their colour across the ramps, step 3 does not. */
+  --ai-avatar-color-3: var(--blue-3);
+  --ai-avatar-speed: 1;
+  --ai-avatar-intensity: 0.7;
+  --ai-avatar-blur: 7cqmin;
+  --ai-avatar-blend: hard-light;
+  --ai-avatar-grain-opacity: 0.25;
+  /* Peak pulse amplitude (scale = 1 + peak), per state. Registered above
+   * so it can be *transitioned*: the running cadence keyframes re-resolve
+   * it every frame, so ramping it eases the whole pulse in and out
+   * instead of switching it on. */
+  --ai-avatar-pulse-peak: 0;
+
+  /* Internal plumbing (leading underscore — not public API). Derived
+   * constants are declared once so a retune can't desync a hand-mirrored
+   * copy (inverse scale, shared durations, phase math). */
+  /* The cadence loop runs in EVERY state at a fixed period; only its
+   * amplitude changes per state (see --ai-avatar-pulse-peak). Keeping the
+   * loop mounted is what removes the old snap: adding/removing the
+   * animation on a state flip dropped the sphere from a mid-pulse pose
+   * straight back to scale 1, and a transition can't smooth an
+   * animation's removal. Fixed period also means state changes never
+   * re-time a running loop.
+   *
+   * One period holds seven unequal beats (see @keyframes speak) — about
+   * 3/s, roughly a syllable rate — so the loop reads as speech rather
+   * than as a metronome. */
+  --_cadence-period: calc(2.2s / var(--ai-avatar-speed));
+  /* How fast a state change is felt — amplitude ramp, field tightening
+   * and blob opacity all share it so the whole orb shifts as one gesture. */
+  --_state-transition: 260ms var(--ease-out);
+  /* Palette changes ramp SLOWER than every other state property above.
+   * The `idle` state shifts the palette to grey (see the idle rule below);
+   * every other state leaves it to the active colours. This transition
+   * governs that idle grey↔active fade AND consumer colour remaps — e.g. a
+   * host greying the orb for an error, a green completion palette, or a
+   * theme switch — where a slow ~600ms fade reads as intentional, not a
+   * snap. The WebGPU renderer re-reads these vars each frame while the fade
+   * is in flight (ai-avatar-gl.tsx), so both renderers ease together. */
+  --_palette-transition: 600ms var(--ease-out);
+
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  flex: none;
+  border-radius: var(--radius-full);
+  isolation: isolate;
+  container-type: size;
+  user-select: none;
+  /* Whole-orb resting scale. The active states (speaking/listening) nudge
+   * this up a touch so the orb "leans in" when talking or being heard —
+   * applied on .root so BOTH renderers get it (the WebGPU canvas and the
+   * CSS layers alike). transform doesn't affect layout, so a sibling is
+   * never pushed; the orb just grows slightly past its box. Container-query
+   * sizing (cqmin) is measured pre-transform, so the blur is unaffected. */
+  transform: scale(1);
+  transition:
+    transform var(--_state-transition),
+    --ai-avatar-pulse-peak var(--_state-transition),
+    --ai-avatar-color-1 var(--_palette-transition),
+    --ai-avatar-color-3 var(--_palette-transition);
+  /* linear: the beat shapes live in the keyframes, where each one gets
+   * its own attack/decay. An easing here would smear them all. */
+  animation: speak var(--_cadence-period) linear infinite;
+}
+
+/* Active states swell the whole orb a hair — a subtle "lean in" when
+ * talking or listening. Kept small so it never reads as the orb jumping
+ * sizes; the field-tighten and pulse (CSS) / ring travel (WebGPU) carry
+ * the rest of the state's energy. Eases via the .root transition above,
+ * and snaps under prefers-reduced-motion (see the media block below). */
+.root[data-activity="speaking"],
+.root[data-activity="listening"] {
+  transform: scale(1.05);
+}
+
+/* The orb is meant to look the same in both appearances, and almost all of
+ * it already does: --blue-9 (the body) and --indigo-9 (the speaking accent)
+ * are the SAME colour in the light and dark ramps — Radix holds step 9 steady
+ * across modes — so neither needs a dark-mode value. Only the pale cloud
+ * inverts: --blue-3 is #e6f4fe in light and #0d2847 in dark, which would turn
+ * the bright lower cloud bank into a shadow and leave the orb reading as a
+ * lit ball instead of a glowing cloud.
+ *
+ * So pin just that one role, using the light end of the DARK ramp: blue-12 is
+ * the pale blue there, mixed toward gray-12 (the near-white step) to reach
+ * the same airy tint the light ramp's blue-3 has. Everything else is left
+ * alone, so a consumer re-paletting the orb per theme still gets the ramps
+ * that match the appearance they are authoring for.
+ *
+ * `:where(.dark)` keeps this at the same (0,1,0) specificity as the base
+ * rule: it wins on source order, but a host palette — a single class, as
+ * consumers author it — still overrides it. */
+:where(:global(.dark)) .root {
+  --ai-avatar-color-3: color-mix(in srgb, var(--blue-12), var(--gray-12) 60%);
+}
+
+/* Idle is the orb at rest — quietly inactive. Its greyness is a PALETTE
+ * matter (a grey body under a slightly lighter grey cloud), not a shader
+ * desaturation: a host that keeps the orb calm with its OWN palette (e.g. a
+ * green completion orb) then stays that colour instead of being greyed out.
+ * A soft, airy grey in light; a dark, recessive grey in dark (below).
+ * Consumer overrides on the orb — error grey, a completion palette —
+ * outweigh these and still win. Eases via --_palette-transition. */
+.root:where([data-activity="idle"]) {
+  --ai-avatar-color-1: var(--gray-8);
+  --ai-avatar-color-3: var(--gray-4);
+}
+
+/* Idle re-palettes for dark mode: at rest the orb should recede into a dark
+ * surface, and the light greys above read as a bright disc against it.
+ *
+ * The gray ramp inverts here, so these are dark-ramp steps: 4 is dark enough
+ * to recede yet still holds a silhouette against a gray-1 surface, and the
+ * cloud runs all the way out to 9 — a deliberately WIDE spread, since closer
+ * steps read as a flat disc once the shader's `dim` pulls the field toward
+ * the body. Cloud stays lighter than body, as in light mode, so the orb keeps
+ * its lit-from-below read.
+ *
+ * `:where(.dark)` keeps this at the SAME (0,1,0) specificity as the light
+ * idle rule above: it beats that one on source order, but a host palette on
+ * the orb — a single class, as consumers author it — still overrides both.
+ * A bare `.dark` descendant selector would quietly outrank consumers. */
+:where(:global(.dark)) .root:where([data-activity="idle"]) {
+  --ai-avatar-color-1: var(--gray-4);
+  /* gray-9 pulled 22% back toward the body — a dimmer field expressed as a
+   * colour, since mix(body, pale, k * lum) is mix(body, mix(body, pale, k),
+   * lum) and a per-state value belongs in the palette, not in a shader
+   * constant. It also eases with --_palette-transition and reaches the CSS
+   * fallback, neither of which the constant does.
+   *
+   * Idle is meant to sit at 0.7 overall and the renderer already takes dark
+   * to 0.9, so this carries the remainder: 0.7 / 0.9 = 0.78, i.e. 22% back.
+   * Retune the two together — they multiply.
+   *
+   * The one thing a folded dim does not reproduce: a dimmed field never
+   * reached the crest highlight's threshold, so idle keeps a faint light cap
+   * it used to lose. */
+  --ai-avatar-color-3: color-mix(in srgb, var(--gray-9), var(--gray-4) 22%);
+}
+
+/* Speaking is the one state that shows the accent by default: a lavender
+ * cast, the same in both modes. Every other state leaves color-2
+ * transparent (see .root) — the accent's alpha gates it,
+ * so it fades in and out with the state via --_palette-transition. Low
+ * specificity (:where) so a host palette still overrides per state. */
+.root:where([data-activity="speaking"]) {
+  --ai-avatar-color-2: var(--indigo-9);
+}
+
+/* The WebGPU cloudglass layer (renderer="auto" when WebGPU is present).
+ * Fills the sphere's circle exactly like the CSS layers it replaces. */
+.canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+/* The clipping circle and everything that pulses: base wash, blob
+ * field, and grain (which counter-scales — see .grain). */
+.sphere {
+  position: absolute;
+  inset: 0;
+  /* The sphere is the clipping circle (not .root): when the pulse scales
+   * it, the visible shape itself pulses instead of growing invisibly
+   * into a fixed clip. */
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  /* Base wash: periwinkle sky over a bright lower cloud bank. */
+  background: linear-gradient(
+    to bottom,
+    var(--ai-avatar-color-1),
+    var(--ai-avatar-color-3) 78%
+  );
+  /* No animation of its own: it just tracks the cadence scalar, which the
+   * grain inverts, so sphere × grain = 1 exactly on every frame — the
+   * shape pulses, the noise holds still. */
+  transform: scale(calc(1 + var(--ai-avatar-pulse)));
+}
+
+.root[data-activity="thinking"],
+.root[data-activity="speaking"] {
+  --ai-avatar-intensity: 1;
+}
+
+/* Thinking deliberately does NOT pulse — it brightens and tightens only.
+ * The pulse is the "there is a voice" signal; sharing it would make the
+ * two states read as loud/quiet versions of one thing. */
+
+/* Speaking is the loud state — beats you can see at chip size, not a
+ * subtle nudge. Peak is doubled from an earlier, too-subtle 0.1: a
+ * consumer driving the orb from a live audio `level` sees `level × peak`
+ * (see .root[data-driven] below), and real speech rarely pushes level
+ * near 1 — the old peak left audio-driven motion at only a few percent. */
+.root[data-activity="speaking"] {
+  --ai-avatar-pulse-peak: 0.18;
+}
+
+/* Listening is the orb hearing *you*. It deliberately keeps the dim idle
+ * intensity while gaining a small pulse, which is the exact inverse of
+ * thinking (bright, no pulse) — so the two never read as the same state,
+ * and a gentle beat can't be mistaken for the orb talking back. Peak is
+ * doubled from an earlier 0.05 for the same reason as speaking above:
+ * `level × peak` motion was barely visible at realistic audio levels. */
+.root[data-activity="listening"] {
+  --ai-avatar-pulse-peak: 0.1;
+}
+
+/* `listening` reads as a state through motion alone — the small inward
+ * pulse above plus the field-tighten below. It deliberately does NOT
+ * shift the palette: the orb stays its resting blue while being heard. */
+
+/* Consumer-driven amplitude. The app supplies a live level and the
+ * synthetic cadence stands down — switching the animation off is
+ * REQUIRED, not tidiness: CSS animations outrank inline styles in the
+ * cascade, so the keyframe would otherwise overwrite the driven value on
+ * every frame.
+ *
+ * Scaling against --ai-avatar-pulse-peak rather than writing
+ * --ai-avatar-pulse outright keeps two behaviors for free: the 260ms peak
+ * transition still eases state changes in and out, and states whose peak
+ * is 0 (idle, thinking) stay flat even while a level is streaming in. */
+.root[data-driven] {
+  animation: none;
+  --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * var(--ai-avatar-level));
+}
+
+/* The blurred stage. Oversized so blur sampling never exposes a hard edge
+ * at the circle rim. The blobs animate inside it, so `filter: blur()`
+ * re-evaluates every frame — not a cost paid once. Tighten on
+ * thinking/speaking transitions via `transform` (a real CSS transition,
+ * unlike the blobs' running keyframe loops). */
+.field {
+  position: absolute;
+  inset: -12%;
+  filter: blur(var(--ai-avatar-blur));
+  transition: transform var(--_state-transition);
+  transform: scale(1);
+}
+
+.root[data-activity="thinking"] .field {
+  transform: scale(0.92);
+}
+
+/* Tighter still while speaking, so the clouds gather as the sphere swells
+ * — the two reinforce each other instead of both stopping at 0.9. */
+.root[data-activity="speaking"] .field {
+  transform: scale(0.86);
+}
+
+/* Barely tighter than idle: being heard is a quieter gesture than either
+ * thinking or speaking. */
+.root[data-activity="listening"] .field {
+  transform: scale(0.96);
+}
+
+/* No will-change here or on .mover: the running transform animations
+ * promote their own compositor layers, and a permanent will-change held
+ * 2×N layers (~10MB+ at hero size) alive even when idle, paused, or
+ * under prefers-reduced-motion. */
+.blob {
+  position: absolute;
+  width: 90%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-full);
+  opacity: var(--ai-avatar-intensity);
+  background: radial-gradient(circle, var(--_blob-color), transparent var(--_blob-stop));
+  transition: opacity var(--_state-transition);
+  animation-duration: var(--blob-period);
+  animation-iteration-count: infinite;
+  /* Phase-offset each blob into its loop. */
+  animation-delay: calc(var(--blob-i, 0) * -11s);
+}
+
+/* Each blob's wrapper carries a fast churn wobble that is PAUSED outside
+ * `speaking`. Resuming a paused animation continues from its frozen pose
+ * and pausing freezes in place, so speaking moves faster than thinking
+ * with zero re-timing snap in either direction. Wrapper and blob
+ * transforms nest, so the churn composes onto the orbit without
+ * `animation-composition` support.
+ *
+ * The wrapper also carries the blend mode. A blending element mixes
+ * against its backdrop within the nearest isolated group, and this
+ * wrapper is a stacking context (= isolated group) whenever its transform
+ * animation applies — so a blend on .blob itself would only ever see the
+ * wrapper's transparent backdrop and resolve to plain source-over. On the
+ * outermost per-blob element it blends blob-vs-blob inside the filtered
+ * .field group. (The field's filter still isolates the blobs from the
+ * .sphere wash — by design; the wash is the backdrop's job.) */
+.mover {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: var(--ai-avatar-blend);
+  animation: churn 1.5s ease-in-out infinite;
+  animation-play-state: paused;
+  animation-delay: calc(var(--blob-i, 0) * -0.61s);
+}
+
+.root[data-activity="speaking"] .mover {
+  animation-play-state: running;
+}
+
+/* Four recipes. Motion is orbital: each blob spins a full turn around an
+ * off-center transform-origin (linear timing = constant angular speed, so
+ * the loop is seamless — no ping-pong reversal), at mutually non-harmonic
+ * periods (17/23/29/37s) so the composition never visibly repeats. The
+ * shared `orbit` keyframe reads each recipe's rest/peak scale vars, so a
+ * mid-turn swell is tuned per blob without copy-pasted keyframes. */
+.blob[data-blob="0"] {
+  --blob-period: 23s;
+  --_blob-color: var(--ai-avatar-color-1);
+  --_blob-stop: 55%;
+  --_orbit-rest: 1;
+  --_orbit-peak: 1.15;
+  top: -15%;
+  left: -10%;
+  transform-origin: 65% 62%;
+  animation-name: orbit;
+  animation-timing-function: linear;
+}
+
+.blob[data-blob="1"] {
+  --blob-period: 29s;
+  --_blob-color: var(--ai-avatar-color-3);
+  --_blob-stop: 52%;
+  --_orbit-rest: 0.9;
+  --_orbit-peak: 1.05;
+  top: 22%;
+  right: -20%;
+  transform-origin: 38% 58%;
+  animation-name: orbit;
+  animation-timing-function: linear;
+  animation-direction: reverse;
+}
+
+/* The bright low cloud keeps a vertical sweep (baunov's moveVertical):
+ * one non-orbital mover keeps the composition from reading as a single
+ * rotating rig. */
+.blob[data-blob="2"] {
+  --blob-period: 17s;
+  --_blob-color: var(--ai-avatar-color-3);
+  --_blob-stop: 58%;
+  bottom: -28%;
+  left: 5%;
+  animation-name: sweep-c;
+  animation-timing-function: ease-in-out;
+}
+
+/* The accent blob: a single radial gradient of the accent hue
+ * (--ai-avatar-color-2). A transparent color-2 renders an invisible blob, so
+ * the accent's presence is its alpha — matching the WebGPU renderer, where a
+ * transparent color-2 means no accent. `--_blob-stop`/width are larger than the
+ * other blobs' so the accent reads ~2× their footprint. */
+.blob[data-blob="3"] {
+  --blob-period: 37s;
+  --_blob-color: var(--ai-avatar-color-2);
+  --_blob-stop: 65%;
+  --_orbit-rest: 1;
+  --_orbit-peak: 1.2;
+  top: 0%;
+  left: 20%;
+  width: 88%;
+  transform-origin: 30% 75%;
+  animation-name: orbit;
+  animation-timing-function: linear;
+}
+
+
+/* One parameterized orbit: rotate a full turn, swelling to the recipe's
+ * --_orbit-peak mid-turn. var() resolves against the animated element,
+ * so each recipe tunes rest/peak without its own keyframe copy. */
+@keyframes orbit {
+  0%   { transform: rotate(0turn) scale(var(--_orbit-rest)); }
+  50%  { transform: rotate(0.5turn) scale(var(--_orbit-peak)); }
+  100% { transform: rotate(1turn) scale(var(--_orbit-rest)); }
+}
+
+@keyframes sweep-c {
+  0%, 100% { transform: translateY(-8cqmin) scale(1.1); }
+  50%      { transform: translateY(14cqmin) scale(1); }
+}
+
+/* Static fractal-noise film grain (monochrome via the inline saturate(0)
+ * feColorMatrix — raw turbulence is colored RGB noise), blended over the
+ * gradient. Always on, deliberately faint; set --ai-avatar-grain-opacity
+ * to 0 to disable. Inside the sphere's clip (so the pulsing rim always
+ * has noise coverage) but counter-scaling against the pulse, so the
+ * noise itself never scales on screen. */
+.grain {
+  position: absolute;
+  /* Oversized so it still covers the sphere's full box while
+   * counter-scaled down to 1 / (1 + peak) at a pulse crest (the 112% box
+   * holds coverage for any peak below ~0.12). */
+  inset: -6%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* Fixed grain pitch — texture, not layout; deliberately not container-relative.
+   * Rendering the 140px turbulence tile at 70px halves the speckle size. */
+  background-size: 70px 70px;
+  mix-blend-mode: overlay;
+  opacity: var(--ai-avatar-grain-opacity);
+  /* Exact inverse of the sphere's pulse, off the same scalar (see
+   * .sphere) — so the noise never scales on screen, in any state. */
+  transform: scale(calc(1 / (1 + var(--ai-avatar-pulse))));
+}
+
+/* Small fast wobble the mover layers onto its blob's base motion while
+ * speaking. Starts and ends at identity; amplitude is small enough that
+ * a frozen mid-pose (any non-speaking state) reads as composition, not
+ * displacement. */
+@keyframes churn {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(7cqmin, -8cqmin); }
+  50%      { transform: translate(-4cqmin, -12cqmin); }
+  75%      { transform: translate(-8cqmin, 6cqmin); }
+}
+
+/* Speech, not breathing: seven beats of unequal height and spacing over
+ * one loop, each a fast attack into a longer decay. Every value is a
+ * fraction of --ai-avatar-pulse-peak, so a state change scales the whole
+ * cadence without editing a stop; at peak 0 (every state but speaking)
+ * the loop resolves flat and nothing moves. The uneven spacing is the
+ * point — evenly spaced beats read as a machine. */
+@keyframes speak {
+  0%   { --ai-avatar-pulse: 0; }
+  4%   { --ai-avatar-pulse: var(--ai-avatar-pulse-peak); }
+  13%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.12); }
+  17%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.7); }
+  27%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.06); }
+  32%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.92); }
+  44%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.04); }
+  49%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.5); }
+  57%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.08); }
+  62%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.85); }
+  74%  { --ai-avatar-pulse: 0; }
+  79%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.42); }
+  87%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.05); }
+  92%  { --ai-avatar-pulse: calc(var(--ai-avatar-pulse-peak) * 0.28); }
+  100% { --ai-avatar-pulse: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root,
+  .root[data-activity],
+  .sphere,
+  .grain,
+  .blob,
+  .blob[data-blob],
+  .blob[data-blob]::before,
+  .blob[data-blob]::after,
+  .mover {
+    animation: none;
+  }
+
+  /* States still tighten/intensify, but instantly: the blob opacity fade
+   * may keep transitioning (opacity is the sanctioned reduced-motion
+   * signal); the whole-orb transforms must not. */
+  .root,
+  .sphere,
+  .field,
+  .grain {
+    transition: none;
+  }
+
+  /* A consumer-driven level must not move the orb either — the pulse is
+   * the one motion that survives `animation: none`, since it is fed from
+   * outside rather than by a keyframe. */
+  .root[data-driven] {
+    --ai-avatar-pulse: 0;
+  }
+}
