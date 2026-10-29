@@ -67,7 +67,7 @@ If it's unclear whether they want something sent, ask in one short sentence.
 3h. When the events say another session finished its turn (or several did while voice was off), or that another session is waiting for the user (a permission or a question it asks), that's news from elsewhere, not about the session you're working with. For a waiting one, say in a few words what it wants; it's answered there, on screen, never by voice from here. Tell it the way a colleague would mention it in passing: brief, naming the session so the user knows which one, and asking once, lightly, whether they want to go there. A yes, or any way of saying take me there, is go_to_session with the ID the events give; anything else leaves it, and you don't ask again. If they ask later what finished or what's waiting, the events still list those sessions.
 3i. Renaming a session (this one or another) is work for the session: call send_to_session, asking it plainly to rename that session, with the new name exactly as the user said it. It is not new_session, go_to_session or voice_menu. Never say you can't rename a session.
 3j. Archiving the session you're working with: voice breaks if it's archived while you're still in it. So before anything runs, ask the user in one short question where to go first, a new session or an existing one; never send the archive request to this session. Once they say, go there with new_session or go_to_session, with archive_after true: the session you leave is archived once the move is done. Archiving any other session is plain work for the session: send_to_session.
-4. Instructions about how you talk or behave (tone, length, wording, what to say or not say; not voice mode's own settings, such as the language you both speak, your voice or how their words are passed on, which are voice_menu's and last by themselves): follow them right away, and also call send_to_session asking the session to update the voice assistant's instructions with it, so the change lasts beyond this conversation. Pass the instruction on faithfully, in their terms.
+4. Instructions about how you talk or behave (tone, length, wording, what to say or not say; not voice mode's own settings, such as the language you both speak, your voice or how their words are passed on, which are voice_menu's and last by themselves): follow them right away, and also call remember_instruction with it, faithfully and in their terms, so the change lasts beyond this conversation. Never send such an instruction to the session: it's about you, not their project. When they ask you to forget what they told you about how to talk, call forget_instructions.
 When you call a tool, put what you say out loud in its ack field: it's spoken the moment you write it, before the tool runs, so the user hears you right away. Write no other text in that reply unless the tool's reply asks you to. Say it the way a colleague on a call would, shaped by the moment: whether it goes straight through or waits behind running work (the session events say whether the session is busy), whether you're stopping something, how the conversation is going.  Make it up fresh each time; don't fall back on stock phrases, and never say the same thing twice in a row. Keep it to one short sentence of a few words, never a single bare word. Never read out, repeat or paraphrase what you sent: refer to the work only as "that", "it" or "the next one", never by what it is (no file names, no task names).
 
 When a message is only <session_events> with no user words, the session reached a milestone: tell the user what happened in one short sentence: the outcome, not how it got there. If the session asked the user a question or needs a decision (a question, a choice of options, something to approve), read that question out clearly, then wait: send nothing to the session about it until the user clearly approves, picks an option or dismisses it. Their other remarks and thinking out loud are not an answer, and you never answer it on their behalf; if you can't tell whether they've decided, ask them. When the session asks in a question form (listed as an open question form), ask it straight away as one short question, in your own words, with no lead-in about it (that the session is waiting, asking, has a question or needs a decision). Offer only the most relevant option, as a yes-or-no question: the session's pick when it has one (the first button of a closing question, or an option marked recommended), otherwise the one that best fits what you know. Don't list the others, and never add that they can answer in their own words or skip it: they know. A yes picks that option; if they say no or ask what else there is, name the others in a few words. While the form is open, the user's reply is their answer to it, not a new request: once they clearly choose, call answer_question with it (never send_to_session). If they say to skip it, leave it or close it without choosing, call dismiss_question instead. They may also answer on screen; then the form is no longer open, and there's nothing for you to answer.
@@ -1368,6 +1368,67 @@ async def cancel_queued(args):
     return {"content": [{"type": "text", "text": f"Cancelled {len(gone)}.{left} Your ack was spoken; add nothing."}]}
 
 
+# Instructions you gave voice about how it talks ("keep it shorter"), kept across restarts: one per line, given to the
+# talker in its system prompt at every start. Never sent to the session: that's your project, not voice's.
+INSTRUCTIONS = Path(os.environ.get("VOICE_INSTRUCTIONS_FILE") or HOME / "instructions.txt")  # tests point it elsewhere
+
+
+def saved_instructions() -> list[str]:
+    try:
+        return [line.strip() for line in INSTRUCTIONS.read_text().splitlines() if line.strip()]
+    except OSError:
+        return []
+
+
+def instructions_rule() -> str:
+    """The saved instructions, for the system prompt; "" when there are none."""
+    saved = saved_instructions()
+    if not saved:
+        return ""
+    return ("\n\nWhat the user told you in earlier conversations about how to talk (follow it as part of your instructions; "
+            "a newer line wins over an older one it contradicts):\n" + "\n".join(f"- {line}" for line in saved))
+
+
+@tool(
+    "remember_instruction",
+    "Keep an instruction the user gave about how you talk or behave (rule 4): your tone, length, wording, what to say or "
+    "leave out. It still applies after this conversation and after voice restarts. Never for voice mode's own settings, "
+    "even said as 'from now on': the language you speak, your voice, how their words are passed on, progress updates, "
+    "the transcript or the tour are voice_menu's. Never for work for the session.",
+    {
+        "ack": Annotated[str, "What you say out loud right now: a few fresh words that you'll do it from now on (one short sentence)"],
+        "instruction": Annotated[str, "The instruction, faithfully and in their terms, as one short sentence addressed to you"],
+    },
+)
+async def remember_instruction(args):
+    if repeated("remember_instruction", args):
+        return REPEATED
+    text = " ".join(str(args.get("instruction", "")).split())
+    saved = saved_instructions()
+    if text and text not in saved:
+        INSTRUCTIONS.parent.mkdir(parents=True, exist_ok=True)
+        INSTRUCTIONS.write_text("\n".join(saved + [text]) + "\n")
+    logger.info(f"-> REMEMBERED: {text!r}")
+    TOOL_OUTCOME["needs_words"] = False
+    return {"content": [{"type": "text", "text": "Kept: it applies from now on, after restarts too. Your ack was spoken; add nothing."}]}
+
+
+@tool(
+    "forget_instructions",
+    "Forget every instruction the user gave about how you talk (what remember_instruction kept), when they ask you to forget "
+    "them or to go back to how you talked at first.",
+    {"ack": Annotated[str, "What you say out loud right now: a few fresh words that you're back to how you talked at first (one short sentence)"]},
+)
+async def forget_instructions(args):
+    if repeated("forget_instructions", args):
+        return REPEATED
+    INSTRUCTIONS.unlink(missing_ok=True)
+    logger.info("-> FORGOT the saved instructions")
+    TOOL_OUTCOME["needs_words"] = False
+    return {"content": [{"type": "text", "text": "Forgotten: from now on, ignore the earlier instructions about how to talk listed in your "
+                                                  "instructions, and anything like them said in this conversation. Your ack was spoken; add nothing."}]}
+
+
 @tool(
     "end_voice",
     "Close voice mode when the conversation is over: the user explicitly said goodbye or that they're done, or asked to stop "
@@ -1380,11 +1441,6 @@ async def end_voice(args):
     ENDING.request()
     logger.info("[lifecycle] end_voice called: closing after the goodbye")
     waiting = len(FEED.queued)
-    first = (
-        f"{waiting} prompt{'s' if waiting != 1 else ''} you queued {'are' if waiting != 1 else 'is'} still waiting and will still go to the session: "
-        "say so in a few words, then "
-        if waiting else ""
-    )
     TOOL_OUTCOME["needs_words"] = False
     note = f" ({waiting} prompt{'s' if waiting != 1 else ''} still waiting; they still go to the session.)" if waiting else ""
     return {"content": [{"type": "text", "text": f"Voice closes once your goodbye has played.{note} Add nothing."}]}
@@ -1422,7 +1478,8 @@ def set_language(code: str):
 
 
 def system_prompt() -> str:
-    return SYSTEM_PROMPT.replace("<<PASS_ON>>", settings.pass_on_rule(PASS_ON["mode"])) + settings.language_rule(LANGUAGE["code"])
+    return (SYSTEM_PROMPT.replace("<<PASS_ON>>", settings.pass_on_rule(PASS_ON["mode"])) + settings.language_rule(LANGUAGE["code"])
+            + instructions_rule())
 
 
 # Until the first run is over (GREETING_RELEASED clear), voice doesn't answer: what you say is meant for the window,
@@ -1502,7 +1559,7 @@ def make_options(listener: bool = False) -> ClaudeAgentOptions:
     """The talker's conversation; listener: the first run's listener instead (FIRST_RUN_PROMPT, its one tool)."""
     ensure_subscription_auth()
     HOME.mkdir(exist_ok=True)  # claude starts in it (below)
-    tools = [first_run_step] if listener else [send_to_session, interrupt_session, cancel_queued, answer_question, dismiss_question, voice_menu, new_session, list_sessions, go_to_session, read_full_answer, end_voice]
+    tools = [first_run_step] if listener else [send_to_session, interrupt_session, cancel_queued, answer_question, dismiss_question, voice_menu, new_session, list_sessions, go_to_session, read_full_answer, end_voice, remember_instruction, forget_instructions]
     server = create_sdk_mcp_server("voice", tools=tools)
     return ClaudeAgentOptions(
         model=os.environ.get("TALKER_MODEL", "claude-haiku-5-5"),

@@ -2,7 +2,7 @@
 
 ## Voice speaking-style requests
 
-When the voice-mode plugin forwards "Update the voice assistant's instructions: …" (the user told the voice front how to talk; older versions said "the voice partner's"), treat it as a request to change the voice assistant's persistent instructions, not a one-off:
+Voice keeps what a user tells it about how to talk in their own `~/.voice-assistant/instructions.txt` (`remember_instruction` in `talker.py`); nothing reaches the session. When you're asked to make such a change part of voice itself, for everyone (or a session receives an "Update the voice assistant's instructions: …" request from an older version), change the voice assistant's instructions:
 
 1. Edit `SYSTEM_PROMPT` in `talker.py`. A request about the voice itself (speed, voice) goes to Kokoro's settings in `daemon.py` instead; the voices offered in the orb's menu, and the Pass on my words modes, are in `settings.py`.
 2. Run `uv run run_tests.py` (every check, in parallel; `--changed` for only what your edits affect while iterating), plus a targeted check of the new behavior; if it's worth keeping, add it to `tests/test_naming.py` or a new `tests/test_*.py` listed in `run_tests.py`.

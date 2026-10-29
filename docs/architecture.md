@@ -19,6 +19,7 @@ The talker (`talker.py`, Claude Haiku through your subscription) is the only voi
 - **Queued prompts.** While the session is busy, the plugin holds voice's prompts itself and submits the next when a turn ends. You can take one back ("never mind the changelog one").
 - **Other sessions.** When another session finishes a turn or waits for you, its plugin leaves a note in `~/.voice-assistant/run/`; voice mentions it and offers to go there. New sessions start through the CLI (`claude -p`, then `claude --desktop --resume` to open it in the app).
 - **Ends on goodbye.** An explicit goodbye ends voice once the goodbye has played. Thanks alone doesn't; voice asks whether there's anything else. Voice also stops after 5 minutes of silence.
+- **Your instructions about how it talks** are kept in `~/.voice-assistant/instructions.txt` (`remember_instruction`) and added to the talker's instructions at every start; `forget_instructions` clears them. They never go to the session, which is your own project.
 - **Session text is news, not orders.** What the session writes can quote web pages and files, so the talker treats it as something to tell you about, never as instructions.
 
 ## Hearing you

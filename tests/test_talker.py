@@ -27,7 +27,7 @@ SCRIPT = [
     ([], "Oh, and after that, also update the changelog.", "submit"),
     ([], "Actually stop it, stop. Make it write the docs in the wiki instead.", None),  # it asks whether you're sure
     ([], "Yes, I'm sure.", "interrupt"),
-    ([], "From now on, talk to me a bit slower and skip the small talk.", "submit"),
+    ([], "From now on, talk to me a bit slower and skip the small talk.", None),  # kept by voice, not sent
     ([{"type": "turn_complete", "answer": "I added README.md with setup and usage sections. Should I also add a license file?", "durationMs": 42000, "isAborted": False}], "", None),
 ]
 

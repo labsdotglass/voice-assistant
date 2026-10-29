@@ -46,6 +46,7 @@ When the orb is in the corner of your screen, start talking. The first time you 
 - **Talk normally.** Ask a question, ask for work, think out loud. Voice decides whether to answer itself or send your request to the session.
 - **Questions from the session** are read out. Answer out loud or on screen, whichever is easier.
 - **Stop or redirect:** "stop that", "actually, do the tests first". Voice checks with you before it interrupts.
+- **How it talks:** tell it ("keep it shorter", "don't read file names out"). It remembers across restarts, in `~/.voice-assistant/instructions.txt`; "forget what I told you about how to talk" resets it.
 - **Other sessions:** "what sessions do I have?", "go to the pricing session", "start a new session in my-app and have it run the tests". Voice tells you when a session you're not looking at finishes or needs you.
 - **End:** say goodbye, or right-click the orb → **Stop voice**. `/talk` toggles it.
 - **The orb:** drag it anywhere; it snaps to edges. A small badge above it counts queued requests; click it for the list.
