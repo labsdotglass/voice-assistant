@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 TESTS = "tests"  # where the checks live; the lists below name them by file
 OFFLINE = ["test_protocol.py", "test_private_paths.py", "test_settings.py", "test_interrupt.py", "test_speech.py", "test_speaker.py", "test_ending.py", "test_loading.py", "test_tasks.py", "test_draft.py", "test_early.py", "test_turn_end.py", "test_fast_voice.py", "test_hebrew_reading.py", "test_hebrew_terms.py", "test_restart_in_place.py", "test_finished.py", "test_waiting.py", "test_opening.py", "test_parity.py", "test_translations.py", "test_first_run.py", "test_quiet_first_run.py", "test_onboarding.py", "test_enroll_phrases.py", "test_release.py", "test_setup.py"]
-TALKER = ["test_talker.py", "test_session_text.py", "test_naming.py", "test_cancel.py", "test_end_voice.py", "test_greeting.py", "test_progress.py", "test_concise.py", "test_pass_on.py", "test_opener.py", "test_ack_first.py", "test_decision.py", "test_form.py", "test_voice_menu.py", "test_menu_switches.py", "test_menu_sessions.py", "test_menu_tour.py", "test_first_run_listener.py", "test_switch.py", "test_confirm.py", "test_sessions.py", "test_brief.py", "test_finished_elsewhere.py", "test_rename.py", "test_archive.py", "test_full_answer.py", "test_judgment.py", "test_one_prompt.py", "test_waiting_elsewhere.py", "test_refused.py", "test_follow_up.py", "test_restart.py", "test_typed.py", "test_catch_up.py", "test_nikud.py"]  # each a few model calls
+TALKER = ["test_talker.py", "test_instructions.py", "test_session_text.py", "test_naming.py", "test_cancel.py", "test_end_voice.py", "test_greeting.py", "test_progress.py", "test_concise.py", "test_pass_on.py", "test_opener.py", "test_ack_first.py", "test_decision.py", "test_form.py", "test_voice_menu.py", "test_menu_switches.py", "test_menu_sessions.py", "test_menu_tour.py", "test_first_run_listener.py", "test_switch.py", "test_confirm.py", "test_sessions.py", "test_brief.py", "test_finished_elsewhere.py", "test_rename.py", "test_archive.py", "test_full_answer.py", "test_judgment.py", "test_one_prompt.py", "test_waiting_elsewhere.py", "test_refused.py", "test_follow_up.py", "test_restart.py", "test_typed.py", "test_catch_up.py", "test_nikud.py"]  # each a few model calls
 # Offline checks that still need the speech models on disk (gigabytes): left out by --no-models.
 NEEDS_MODELS = {"test_speaker.py", "test_fast_voice.py", "test_hebrew_reading.py"}
 MOD = "mod"  # the voice mod (hooks/, .claude-plugin/), checked by the engine itself: claude plugin validate
@@ -89,7 +89,8 @@ def run(check: str, root: Path = ROOT) -> tuple[str, int, str, float]:
         return check, done.returncode, done.stdout[-1500:] if done.returncode else "", time.monotonic() - t0
     # Checks keep out of your own voice history: the talker's record of its checks goes to a scratch file.
     scratch = Path(tempfile.mkdtemp())
-    env = {**os.environ, "VOICE_CHECKS_FILE": str(scratch / "checks.json"), "VOICE_SETTINGS_FILE": str(scratch / "settings.json")}
+    env = {**os.environ, "VOICE_CHECKS_FILE": str(scratch / "checks.json"), "VOICE_SETTINGS_FILE": str(scratch / "settings.json"),
+           "VOICE_INSTRUCTIONS_FILE": str(scratch / "instructions.txt")}
     done = subprocess.run([sys.executable, located(check, root)], cwd=root, capture_output=True, text=True, env=env)
     # The check's own report, without Pipecat's and the SDK's log lines.
     report = "\n".join(l for l in done.stdout.splitlines() if not l.startswith("20"))
