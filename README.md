@@ -43,7 +43,7 @@ When the orb is in the corner of your screen, start talking. The first time you 
 
 ## Using it
 
-- **Talk normally.** Ask a question, ask for work, think out loud. Voice decides whether to answer itself or send your request to the session.
+- **Talk normally.** Ask a question, ask for work, think out loud. Voice decides whether to answer itself or send your request to the session. A soft tick tells you a request reached the session.
 - **Questions from the session** are read out. Answer out loud or on screen, whichever is easier.
 - **Stop or redirect:** "stop that", "actually, do the tests first". Voice checks with you before it interrupts.
 - **How it talks:** tell it ("keep it shorter", "don't read file names out"). It remembers across restarts, in `~/.voice-assistant/instructions.txt`; "forget what I told you about how to talk" resets it.

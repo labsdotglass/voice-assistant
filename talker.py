@@ -102,6 +102,7 @@ class Outbox:
         self.queue: list[dict] = []
         self.stopping = False
         self.changed = asyncio.Event()  # a command arrived, focus moved, or voice is stopping
+        self.on_sent = None  # a prompt reached the session's mod: the daemon plays a soft tick, so you know it went
 
     @property
     def owner(self) -> str | None:
@@ -137,6 +138,8 @@ class Outbox:
         if client != self.owner:
             return None
         out, self.queue = self.queue, []
+        if self.on_sent and any(m.get("type") in ("submit", "merge") for m in out):
+            self.on_sent()  # once per delivery, however many prompts it carries
         return out
 
 

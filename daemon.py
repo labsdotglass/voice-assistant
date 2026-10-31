@@ -323,6 +323,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
         gray_until_greeting=os.environ.get("VOICE_GREETING", "1") != "0" or bool(RESTART["why"]),  # every restart says it's back
         on_ready=(lambda: (orb.tick(), orb.set_orb(opening=False))) if orb else None,  # a restart's spinner ends
     )
+    OUTBOX.on_sent = orb.tick if orb else None  # every prompt handed to the session is confirmed by the same tick
 
     # Only your voice gets answered, once enrolled; without a voice print, everyone is. Learning it runs by
     # phrases in the onboarding window: in a first run, once the window's Your voice step asks (enroll).
