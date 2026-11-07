@@ -99,7 +99,7 @@ async def quiet():
         told.append(time.monotonic())
 
     stub = SimpleNamespace(_replying=lambda: replying["on"], _reply=reply, create_task=asyncio.ensure_future, _reply_task=None)
-    FEED.pending = ["[news]"]
+    FEED.pending, FEED.news_due = ["[news]"], True
     talker.VOICE_STATE["now"] = "speaking"
     task = asyncio.ensure_future(talker.Talker._news_when_quiet(stub))
     await asyncio.sleep(0.5)
@@ -122,8 +122,53 @@ async def quiet():
     ok(not told, "nothing said when a reply meanwhile already carried the news")
 
 
+async def during_a_reply():
+    """News that arrives while voice is replying, such as an action failing during its ack, is said after the reply."""
+    told = []
+
+    async def reply(text, one_sentence=False):
+        told.append(FEED.drain())
+
+    t = talker.Talker()
+    t._started, t._reply, t.create_task = True, reply, asyncio.ensure_future
+    talker.GREETING_RELEASED.set()
+    FEED.pending = []
+    FEED.last_progress = 0.0
+    talker.VOICE_STATE["now"] = "speaking"
+
+    t._reply_task = asyncio.ensure_future(asyncio.sleep(0.2))
+    t.on_session_event({"type": "plan", "input": {"items": [{"content": "A", "status": "in_progress"}]}})
+    ok(t._news_task is None, "a plan update during a reply stays unsaid: it's out of date by the end")
+    FEED.pending = []
+
+    t.on_session_event({"type": "new_session_done", "ok": False, "text": "There's no project called acme."})
+    ok(not told, "the failure isn't said over the reply")
+    await t._reply_task
+    talker.VOICE_STATE["now"] = "listening"
+    await asyncio.sleep(talker.QUIET_BEFORE_NEWS + 0.3)
+    ok(len(told) == 1 and "no project called acme" in told[0], "the failure is said once the reply is over, without you asking")
+
+    # Your next words carried the news first: the session's chatter since then isn't news to announce.
+    told[:] = []
+    talker.VOICE_STATE["now"] = "speaking"
+    t._reply_task = asyncio.ensure_future(asyncio.sleep(0.1))
+    t.on_session_event({"type": "new_session_done", "ok": False, "text": "It didn't open."})
+    FEED.drain()
+    FEED.pending = ["[session tool: Read a file]"]
+    await t._reply_task
+    talker.VOICE_STATE["now"] = "listening"
+    await asyncio.sleep(talker.QUIET_BEFORE_NEWS + 0.3)
+    ok(not told, "nothing said when a reply meanwhile carried the failure and only chatter is left")
+
+    FEED.news_due = True
+    FEED.add({"type": "switched", "session": "s2", "title": "Other", "project": "site"})
+    ok(not FEED.news_due, "a switch drops the news it was waiting to say")
+    FEED.pending = []
+
+
 notes()
 feed()
 asyncio.run(quiet())
+asyncio.run(during_a_reply())
 print(f"{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

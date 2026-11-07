@@ -406,6 +406,8 @@ class SessionFeed:
         self.elsewhere: list[dict] = []
         # The session's last answer in full, for read_full_answer: what you hear of it is clipped.
         self.last_answer = ""
+        # News is waiting for a quiet moment (Talker._news_when_quiet). Any reply carries it, so that clears this.
+        self.news_due = False
 
     def _finished(self, ev: dict):
         self.elsewhere = [{k: ev.get(k, "") for k in ("id", "title", "project")}] + [
@@ -459,6 +461,7 @@ class SessionFeed:
                 # Other sessions' waits not yet told still stand (not the one you've just gone to: you see it now).
                 waiting = [p for p in self.pending if p.startswith(WAITING_NEWS) and str(sid) not in p]
                 self.pending = [f"[the session you're working with now: {which}, the one the user just switched to.]", *waiting]
+                self.news_due = bool(waiting)  # the switch is told by itself, and the other news it just dropped is gone
                 self.queued, self.forms, self.buttons, self.quiet_next, self.permissions = [], {}, {}, False, {}
                 self.last_progress = 0.0
                 self.last_answer = ""  # the new session's comes with its history
@@ -673,6 +676,7 @@ class SessionFeed:
 
     def drain(self) -> str:
         REPLY_CALLS.clear()  # every reply starts here: any call may run again
+        self.news_due = False
         if not self.pending and not self.queued and not self.forms and not self.permissions and not tour_is_open() and not earlier_checks():
             return ""
         state = "busy" if self.busy else "idle"
@@ -1606,7 +1610,11 @@ class Talker(FrameProcessor):
             return  # an event before the pipeline runs (the inbox opens first): it waits in the feed for the start
         if not GREETING_RELEASED.is_set():
             return  # voice isn't talking until the first run is over: the news waits in the feed for the greeting
-        if worth and ev.get("type") in ("finished_elsewhere", "finished_while_off", "waiting_elsewhere", "waiting_while_off", "submit_refused"):
+        # News during a reply (an action failing while its ack plays) would otherwise wait for your next words.
+        # A plan update wouldn't: it's out of date by the time the reply ends.
+        mid_reply = self._replying() and ev.get("type") != "plan"
+        if worth and (mid_reply or ev.get("type") in ("finished_elsewhere", "finished_while_off", "waiting_elsewhere", "waiting_while_off", "submit_refused")):
+            FEED.news_due = True
             if not self._news_task or self._news_task.done():  # one wait carries every piece of news that comes meanwhile
                 self._news_task = self.create_task(self._news_when_quiet())
             return
@@ -1627,7 +1635,7 @@ class Talker(FrameProcessor):
             quiet_since = quiet_since or time.monotonic()
             if time.monotonic() - quiet_since >= QUIET_BEFORE_NEWS:
                 break
-        if FEED.pending:  # still there: no reply meanwhile carried it
+        if FEED.news_due and FEED.pending:  # still there: no reply meanwhile carried it
             logger.info("[news] announcing, voice quiet for a second")
             self._reply_task = self.create_task(self._reply(""))
 
