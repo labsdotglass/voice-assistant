@@ -961,6 +961,8 @@ export const register: Register = on => {
         if (input.ask && buttons.length && _id) {
           waitingCard = { type: 'question', id: _id, buttons, questions: [{ question: input.ask, options: buttons.map(b => b.label), multiSelect: false }] }
           post($, waitingCard)
+        } else if (input.ask) {
+          post($, { type: 'asks', text: input.ask }) // only the app's buttons answer it, but the session still waits on you
         }
       }
     }
