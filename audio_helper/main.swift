@@ -201,6 +201,13 @@ func rebuildAudio(run: Int, attempt: Int = 1) {
     }
 }
 
+// Denied, the audio engine would start and hear only silence.
+let micAccess = AVCaptureDevice.authorizationStatus(for: .audio)
+if micAccess == .denied || micAccess == .restricted {
+    log("microphone not allowed")
+    exit(1)
+}
+
 do { try buildAudio() } catch {
     log("audio failed to start: \(error)")
     exit(1)

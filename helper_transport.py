@@ -15,6 +15,7 @@ import struct
 import time
 from pathlib import Path
 
+import failure
 import numpy as np
 from loguru import logger
 from pipecat.frames.frames import (
@@ -194,8 +195,12 @@ class AudioHelper:
                 self._send_orb()
                 self._send(b"V", b"1" if self._panel_visible else b"0")
                 return
-            await build_helper()
-            await build_app()
+            try:
+                await build_helper()
+                await build_app()
+            except RuntimeError:
+                failure.record(failure.cant_build("its audio"))
+                raise
             self.proc = await asyncio.create_subprocess_exec(
                 str(LAUNCHER), str(HELPER), "--out-rate", str(self.out_rate), *self.orb_args(),
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
@@ -205,6 +210,11 @@ class AudioHelper:
             logger.info(line)
             if "ready" not in line:
                 logger.error(f"[lifecycle] audio helper failed to start: {line!r}")
+                if "microphone not allowed" in line:
+                    failure.open_microphone_settings()
+                    failure.record(failure.MICROPHONE)
+                else:
+                    failure.record(failure.AUDIO)
                 if self.proc.returncode is None:
                     self.proc.kill()
                 self.proc = None  # so a later start tries again rather than finding a dead helper

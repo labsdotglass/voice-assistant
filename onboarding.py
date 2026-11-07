@@ -19,6 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import failure
 import first_run
 from home import HOME
 
@@ -54,6 +55,7 @@ def build():
     PROGRAM.parent.mkdir(exist_ok=True)
     done = subprocess.run(["xcrun", "swiftc", "-O", str(SOURCE), "-o", str(PROGRAM)], capture_output=True, text=True)
     if done.returncode:
+        print("failed " + failure.cant_build("its setup window"), flush=True)  # the mod shows it
         sys.exit("couldn't build the slideshow; it needs Xcode's command line tools (xcode-select --install): " + done.stderr[-400:])
 
 
