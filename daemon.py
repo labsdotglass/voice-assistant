@@ -42,6 +42,7 @@ from pipecat.transcriptions.language import Language
 from pipecat.turns.user_mute import AlwaysUserMuteStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 
+import failure
 import first_run
 import new_session
 import home
@@ -442,6 +443,11 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
     @task.event_handler("on_pipeline_error")
     async def _error(task, frame):
         logger.error(f"[lifecycle] voice pipeline error: {getattr(frame, 'error', frame)} (fatal: {getattr(frame, 'fatal', '?')})")
+        # Pipecat carries on after a processor's error: with no audio helper, that's a daemon that looks fine and hears nothing.
+        said = failure.read()
+        if said and said.get("final"):
+            close_reason["why"] = f"can't run: {said['why']}"
+            await task.cancel()
 
     @task.event_handler("on_idle_timeout")
     async def _idle(task):
@@ -690,10 +696,12 @@ if __name__ == "__main__":
         home.private(folder)
     logger.add(home.LOG, level="INFO", rotation="5 MB", retention=2)
     logger.info(f"[lifecycle] voice daemon starting (pid {os.getpid()}, parent {os.getppid()})")
+    failure.clear()
     try:
         asyncio.run(main(args.socket, not args.no_aec, args.headphones or os.environ.get("VOICE_HEADPHONES") == "1", args.restart))
     except Exception as e:
         # Into the file too: a crash while starting would otherwise reach only stderr, which the
         # "couldn't start" toast doesn't point to.
         logger.exception(f"[lifecycle] voice daemon crashed: {type(e).__name__}: {e}")
+        failure.record(f"Voice stopped on an error it didn't expect ({type(e).__name__}). Try starting it again.", final=False)
         sys.exit(1)

@@ -8,6 +8,8 @@ from pathlib import Path
 import claude_agent_sdk
 from loguru import logger
 
+import failure
+
 API_BILLING_ENV = (
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_AUTH_TOKEN",
@@ -30,6 +32,14 @@ def ensure_subscription_auth():
             logger.warning(f"Ignoring {key} (set VOICE_ALLOW_API=1 to use API billing)")
     # Ask the same CLI binary the SDK will run how it's authenticated.
     cli = Path(claude_agent_sdk.__file__).parent / "_bundled" / "claude"
-    status = json.loads(subprocess.run([str(cli), "auth", "status"], capture_output=True, text=True).stdout)
-    if status.get("authMethod") != "claude.ai":
-        raise SystemExit(f"Not on the claude.ai subscription (authMethod={status.get('authMethod')!r}). Refusing to start.")
+    try:
+        status = json.loads(subprocess.run([str(cli), "auth", "status"], capture_output=True, text=True).stdout)
+    except ValueError:  # no output, or not JSON: treated as not signed in
+        status = {}
+    method = status.get("authMethod") if isinstance(status, dict) else None
+    if not method:
+        failure.record(failure.SIGN_IN)
+        raise SystemExit("Not signed in to Claude Code. Refusing to start.")
+    if method != "claude.ai":
+        failure.record(failure.SUBSCRIPTION)
+        raise SystemExit(f"Not on the claude.ai subscription (authMethod={method!r}). Refusing to start.")

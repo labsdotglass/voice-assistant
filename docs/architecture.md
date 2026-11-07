@@ -56,7 +56,7 @@ A language switch restarts voice in place: the daemon re-executes itself and han
 - `talker.py`: the talker, the session feed, the task board, greetings and goodbyes.
 - `speaker.py`, `enroll_voice.py`: answering only your voice, and learning it.
 - `settings.py`, `languages.json`: the orb menu's settings and the languages.
-- `interim.py`: the draft line. `focus.py`: which session you're in. `new_session.py`: starting and finding sessions. `claude_login.py`: the subscription check.
+- `interim.py`: the draft line. `focus.py`: which session you're in. `new_session.py`: starting and finding sessions. `claude_login.py`: the subscription check. `failure.py`: why voice can't run, left in `run/failure` for the plugin to show instead of starting it again.
 - `helper_transport.py`, `audio_helper/main.swift`, `audio_helper/launcher.swift`: the audio helper and the app that runs it, so macOS asks for the microphone under its name.
 - `onboarding.py`, `first_run.py`, `audio_helper/onboarding.swift`, `orb-page/src/tour.tsx`: the first run's window. Its words, in every language, are in `orb-page/src/first-run-text.json`.
 - `hebrew_voice.py`, `hebrew_mlx.py`, `hebrew_terms.py`: Hebrew.

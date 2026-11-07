@@ -27,6 +27,7 @@ function paths($: Dollar): Promise<RunPaths> {
       return {
         sock: `${d}/run/voice.sock`,
         restart: `${d}/run/restart`,
+        failure: `${d}/run/failure`,
         owner: `${d}/run/owner`,
         finished: `${d}/run/finished`,
         waiting: `${d}/run/waiting`,
@@ -410,12 +411,15 @@ async function pollCommands($: Dollar, me: string) {
         const wasOn = await read($, isOn)
         vlog($, `lost the daemon: the socket stopped answering (this session had voice: ${wasMine}, voice on: ${wasOn})`)
         await setVoice($, false)
-        if (wasMine && wasOn) {
+        const failed = await takeFailure($)
+        quickDeaths = Date.now() - startedAt < QUICK_DEATH_MS ? quickDeaths + 1 : 0
+        if (wasMine && wasOn && !failed?.final && quickDeaths < MAX_QUICK_DEATHS) {
           vlog($, 'restart attempt: starting voice again here')
           void start($, 'the daemon died while this session had voice', { isRestart: true })
         } else {
-          vlog($, 'not restarting it from this session')
+          vlog($, `not restarting it from this session${failed ? `: ${failed.why}` : ''}`)
           await voiceOff($)
+          if (wasMine && wasOn) await tellFailure($, failed?.why ?? "Voice keeps stopping, so it won't start again by itself. Start it when you're ready.")
         }
         return
       }
@@ -570,10 +574,35 @@ async function findUv($: Dollar): Promise<string | undefined> {
   return undefined
 }
 
+// Voice dying soon after it started, again and again, stops the restarts (pollCommands).
+const QUICK_DEATH_MS = 120_000
+const MAX_QUICK_DEATHS = 2
+let startedAt = 0
+let quickDeaths = 0
+
+// Why the daemon couldn't run, if it knows (failure.py); read once. final: starting it again won't help.
+async function takeFailure($: Dollar): Promise<{ why: string; final: boolean } | undefined> {
+  const file = (await paths($)).failure
+  const res = await $.process.run(['/bin/sh', '-c', 'cat "$1" 2>/dev/null && rm -f "$1"', 'sh', file]).catch(() => undefined)
+  try {
+    return res?.stdout ? (JSON.parse(res.stdout) as { why: string; final: boolean }) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// In the first run's window while it's open, else a toast.
+async function tellFailure($: Dollar, why: string) {
+  const uv = firstRunOpen ? await findUv($) : undefined
+  if (uv) await $.process.run([uv, 'run', '--no-project', '--directory', $.plugin.root, 'onboarding.py', '--install-failed', why]).catch(() => undefined)
+  else $.ui.toast(why)
+}
+
 // isRestart: not your start (/talk, Start voice) but voice coming back on its own, so the daemon carries on
 // the conversation instead of greeting you afresh.
 async function start($: Dollar, why: string, { firstTour = false, isRestart = false } = {}) {
   vlog($, `start requested: ${why}`)
+  if (!isRestart) quickDeaths = 0
   if (await connect($)) {
     vlog($, 'start: voice was already running; joined it')
     return // already running: it follows whichever session you're in
@@ -598,6 +627,7 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
     // VOICE_FIRST_TOUR: the first-start tour is open, so voice learns your voice only once it closes.
     env: { PYTHONUNBUFFERED: '1', ...(firstTour ? { VOICE_FIRST_TOUR: '1' } : {}) },
   })
+  startedAt = Date.now()
   const it = child[Symbol.asyncIterator]()
   const mine = () => void it.return?.({ code: 0, signal: null })
   stop = mine
@@ -626,15 +656,20 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
         if (piece.done) {
           vlog($, `the daemon process exited: ${JSON.stringify(piece.value ?? null)}`)
           const code = (piece.value as { code?: number | null } | undefined)?.code
+          // Told by the daemon why it can't run (it may have exited cleanly): a daemon that registered is pollCommands' to report.
+          const failed = !answered && !polling ? await takeFailure($) : undefined
+          if (failed?.final) {
+            await voiceOff($)
+            await tellFailure($, failed.why)
           // Only a start that never got going: not a daemon that ran and was stopped or restarted
           // (exit 143, SIGTERM, is how a restart ends it).
-          if (code && !answered && !polling && code !== 143) {
+          } else if (code && !answered && !polling && code !== 143) {
             if (firstTour) {
               // Most likely uv couldn't install voice's packages: the open window says so, and that /talk tries again.
               const reason = (lastError || `uv exited with code ${code}`).slice(0, 200)
               await $.process.run([uv, 'run', '--no-project', '--directory', $.plugin.root, 'onboarding.py', '--install-failed', reason]).catch(() => undefined)
               await voiceOff($)
-            } else $.ui.toast("Voice mode couldn't start. What went wrong is in ~/.voice-assistant/logs/voice.log.")
+            } else $.ui.toast(failed?.why ?? "Voice mode couldn't start. What went wrong is in ~/.voice-assistant/logs/voice.log.")
           }
           break
         }
@@ -789,6 +824,9 @@ async function turnOn($: Dollar, why: string) {
         } else if (line === 'later') {
           await turnOff($, "the first run's Not now")
           $.ui.toast('Voice is off. Type /talk or press Start voice when you want it.')
+        } else if (line.startsWith('failed ')) {
+          await turnOff($, "the first run's window couldn't be built")
+          $.ui.toast(line.slice('failed '.length))
         } else if (line === 'hidden' || line === 'shown') await watchHiddenSetup($, line === 'hidden')
       }).finally(async () => {
         firstRunOpen = false
