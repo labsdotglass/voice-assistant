@@ -591,11 +591,17 @@ async function takeFailure($: Dollar): Promise<{ why: string; final: boolean } |
   }
 }
 
-// In the first run's window while it's open, else a toast.
+// In the first run's window while it's open, else a question: unlike a toast it stays until answered,
+// and its button starts voice again (your start, so the restart limit doesn't stop it).
 async function tellFailure($: Dollar, why: string) {
   const uv = firstRunOpen ? await findUv($) : undefined
-  if (uv) await $.process.run([uv, 'run', '--no-project', '--directory', $.plugin.root, 'onboarding.py', '--install-failed', why]).catch(() => undefined)
-  else $.ui.toast(why)
+  if (uv) {
+    await $.process.run([uv, 'run', '--no-project', '--directory', $.plugin.root, 'onboarding.py', '--install-failed', why]).catch(() => undefined)
+    return
+  }
+  void $.ui.ask(`${why} Start voice again?`, { header: 'Voice', options: ['Start voice', 'Not now'] })
+    .then(answer => { if (answer === 'Start voice') void start($, "the failure question's Start voice") })
+    .catch(() => undefined) // dismissed
 }
 
 // isRestart: not your start (/talk, Start voice) but voice coming back on its own, so the daemon carries on

@@ -680,6 +680,12 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
         await inbox.cleanup()
         Path(socket_path).unlink(missing_ok=True)
         emit({"type": "status", "text": "stopped"})
+        if (said := failure.read()) and said.get("final"):
+            # Voice can't run: end now, not once the speech models' threads finish (up to 15 s), since the
+            # mod tells you why only when this process is gone.
+            logger.info("[lifecycle] can't run: ending now")
+            sys.stdout.flush()
+            os._exit(1)
 
 
 if __name__ == "__main__":
