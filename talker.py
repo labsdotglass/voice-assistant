@@ -381,6 +381,23 @@ def elsewhere_list(rows: list[dict]) -> str:
 WAITING_NEWS = "[another session, not the one you're working with, is waiting for the user: "
 
 
+# How a finished turn is told. Describes the quality wanted: Haiku copies example phrases word for word.
+REPORT_BACK = ("[When you tell it: what came of that request in a few words, so they know which one you mean, then where things "
+               "stand now: all done with nothing left, on to something else, or waiting on them and for what. A next step its "
+               "answer says needs their go-ahead or their review counts as waiting on them. When it asks them something, that "
+               "question is the state: end on it, asked the short way the rules give, with nothing said about it waiting or "
+               "asking. A sentence or two, each short. Leave out the checks, caveats and how it was done, and offer nothing "
+               "more; they can ask.]")
+
+
+def unreported_request(voice: list[dict], reply_at: float | None) -> str:
+    """After a restart: the last thing voice sent, if the session replied (`reply_at`, epoch secs) after voice's last line."""
+    sent = [l for l in voice if l.get("who") in ("sent", "queued")]
+    if not sent or not reply_at or reply_at * 1000 <= max(l.get("at", 0) for l in voice):
+        return ""
+    return sent[-1].get("text", "")
+
+
 class SessionFeed:
     """What the worker session is doing, as the mod reports it."""
 
@@ -408,6 +425,7 @@ class SessionFeed:
         self.last_answer = ""
         # News is waiting for a quiet moment (Talker._news_when_quiet). Any reply carries it, so that clears this.
         self.news_due = False
+        self.request = ""  # what the running turn was asked, so its end can report on that request
 
     def _finished(self, ev: dict):
         self.elsewhere = [{k: ev.get(k, "") for k in ("id", "title", "project")}] + [
@@ -422,6 +440,7 @@ class SessionFeed:
                 self.forms.pop(fid, None)
                 del self.buttons[fid]
             self.busy = True
+            self.request = ev.get("text", "")
             # Marked as already sent: read bare, Haiku took the quoted prompt for words to pass on and queued it again.
             self.pending.append(f"[session started on, already sent to it (not a request): {ev.get('text', '')[:500]}]")
         elif kind == "tool":
@@ -430,6 +449,7 @@ class SessionFeed:
             # The short turn a skip started: kept for questions, never announced.
             self.quiet_next = False
             self.busy = False
+            self.request = ""
             TASKS.turn_done()
             self.last_answer = ev.get("answer", "") or self.last_answer
             self.pending.append(f"[session answered your skip: {clip_answer(ev.get('answer', ''))}]")
@@ -440,10 +460,9 @@ class SessionFeed:
             secs = round(ev.get("durationMs", 0) / 1000)
             how = "was interrupted" if ev.get("isAborted") else f"finished after {secs}s"
             self.last_answer = ev.get("answer", "") or self.last_answer
-            self.pending.append(f"[session {how}. Its answer: {clip_answer(ev.get('answer', ''))}]\n"
-                                "[When you tell it: the outcome only, in a sentence or two, each short. A question it asks you "
-                                "is always asked. Leave out the checks, caveats and how it was done, and offer nothing more; "
-                                "they can ask.]")
+            asked = f" The request it was working on, already sent: {self.request[:300]}." if self.request else ""
+            self.request = ""
+            self.pending.append(f"[session {how}.{asked} Its answer: {clip_answer(ev.get('answer', ''))}]\n{REPORT_BACK}")
             return not ev.get("isAborted")
         elif kind == "switched":
             self.busy = bool(ev.get("busy"))
@@ -463,6 +482,7 @@ class SessionFeed:
                 self.pending = [f"[the session you're working with now: {which}, the one the user just switched to.]", *waiting]
                 self.news_due = bool(waiting)  # the switch is told by itself, and the other news it just dropped is gone
                 self.queued, self.forms, self.buttons, self.quiet_next, self.permissions = [], {}, {}, False, {}
+                self.request = ""
                 self.last_progress = 0.0
                 self.last_answer = ""  # the new session's comes with its history
                 PLAN.steps = []
@@ -541,6 +561,13 @@ class SessionFeed:
             elif voice:
                 self.pending.append(earlier_voice(voice[-10:]))
             self.caught_up = True
+            if restoring and not self.busy:
+                # The turn's end was lost while voice was down, so nothing has told it.
+                said_since = [l for l in voice if l.get("at", 0) >= since]
+                if (request := unreported_request(said_since, app_sessions.last_said(self.here["id"]).get("reply"))):
+                    self.pending.append(f"[while voice was restarting, the session finished what the user asked. The request, "
+                                        f"already sent: {request[:300]}. Its answer: {clip_answer(ev.get('answer', ''))}]\n{REPORT_BACK}")
+                    return True
             return False
         elif kind == "new_session_done":
             # The session you asked voice to start: open in the app now, or why not.
@@ -649,6 +676,12 @@ class SessionFeed:
             self.pending.append("[the session is asking the user in a question form, on screen until answered:\n"
                                 + describe_form(questions) + "]")
             return True
+        elif kind == "asks":
+            # The session ends its turn asking something only the app's buttons answer (commit, open a PR...).
+            # Told with the turn's end, which comes next.
+            self.pending.append(f"[the session ends its turn waiting on the user: {ev.get('text', '')[:300]} They answer it on screen "
+                                "with the app's buttons or by saying what they want done.]")
+            return False
         elif kind == "question_done":
             # Answered on screen: nothing left for voice to answer.
             if self.forms.pop(ev.get("id", ""), None) is not None:
