@@ -456,7 +456,9 @@ class BargeInTrace:
     ways, each logged with how long it lasted, its loudest volume and surest confidence, and how many of its
     frames passed the strict check: the VAD heard you ("heard", then the speaker's flush, timed from there);
     you stopped and it never did ("missed"); or voice finished speaking first, so you were heard only after
-    it ("late"). The VAD's params set again mid-run is logged too ("restart"): that starts its count over.
+    it ("late"). Heard but never flushed before voice finished is "unflushed". The VAD's params set again
+    mid-run is logged too ("restart"): that starts its count over. frames() runs in the VAD's thread, the
+    rest on the event loop; a race between them can only blur a log line, so there's no lock.
     """
 
     GAP = 0.5  # this long without a speech frame ends a run
@@ -466,6 +468,7 @@ class BargeInTrace:
         self.normal: VADParams | None = None
         self.events: list[tuple[str, dict]] = []  # the last few, for the checks
         self._heard_at: float | None = None  # when the VAD heard you, until the flush
+        self._speaking = False  # what the VAD said last pass: "heard" is only its change to speaking
         self._reset()
 
     def _reset(self):
@@ -489,8 +492,9 @@ class BargeInTrace:
     def frames(self, scores: list[tuple[float, float]], speaking: bool, now: float, frame_secs: float):
         """One analyzer pass: each frame's (confidence, volume), oldest first, and whether the VAD now says speaking."""
         strict, normal = self.strict, self.normal
-        if strict is None or normal is None:
-            return
+        was, self._speaking = self._speaking, speaking
+        if strict is None or normal is None or (speaking and was):
+            return  # voice isn't speaking, or the VAD already heard this utterance: nothing to time
         for i, (conf, vol) in enumerate(scores):
             t = now - (len(scores) - 1 - i) * frame_secs
             if conf >= normal.confidence and vol >= normal.min_volume:
@@ -511,7 +515,11 @@ class BargeInTrace:
             self._reset()
 
     def bot_stopped(self, now: float):
-        """Voice stopped speaking: a run still going is heard only now, with the normal params."""
+        """Voice stopped speaking: a run still going is heard only now, with the normal params. And the VAD heard
+        you but the speaker was never flushed: voice spoke on over you (the interruption never came)."""
+        if self._heard_at is not None:
+            self._event("unflushed", f"the VAD heard you {now - self._heard_at:.2f}s ago, but voice spoke on: no interruption reached the speaker")
+            self._heard_at = None
         if self._start is not None:
             s = self._stats(now)
             self._event("late", f"late: voice finished speaking before it heard you, {self._summary(s)}", **s)

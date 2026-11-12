@@ -47,6 +47,23 @@ ok(kinds(b)[-1] == "flushed" and b.events[-1][1]["secs"] == 0.12, f"and the spea
 b.flushed(11.0)
 ok(len(b.events) == 2, "a flush with no barge-in before it logs nothing")
 
+# Still speaking: the VAD stays SPEAKING for the rest of the utterance, and that's one "heard", not one per pass.
+b = trace()
+now = feed(b, [LOUD] * 10, 10.0, speaking=True)
+for _ in range(20):
+    now = feed(b, [LOUD], now + F, speaking=True)
+ok(kinds(b) == ["heard"], f"one utterance is heard once, however long it goes on: {kinds(b)}")
+now = feed(b, [QUIET] * 10, now + 10 * F)
+feed(b, [LOUD] * 10, now + 10 * F, speaking=True)
+ok(kinds(b) == ["heard", "heard"], f"and the next one is heard again: {kinds(b)}")
+
+# Unflushed: heard, but voice spoke on until it finished.
+b = trace()
+feed(b, [LOUD] * 10, 10.0, speaking=True)
+b.strict = None
+b.bot_stopped(13.0)
+ok(kinds(b) == ["heard", "unflushed"], f"heard with no stop before voice finished is logged: {kinds(b)}")
+
 # Missed: soft speech the strict check never lets through, then a pause.
 b = trace()
 now = feed(b, [SOFT] * 20, 10.0)
