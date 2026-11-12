@@ -74,12 +74,15 @@ const UV_SETUP = /^(Using CPython|Creating virtual environment|Resolved|Download
 
 // The transcript side panel: what you said, what the voice said, what went to the session.
 const PANE = 'voice-transcript'
-// The panel's title says when voice runs a staging install (staging.sh): its version ends in "-staging.<commit>",
-// and the plugin's folder is named after it, so you never mistake a branch for the release.
-const paneTitle = ($: { plugin: { root: string } }): string => {
-  const staging = /-staging\.([0-9a-f]+)$/.exec($.plugin.root.replace(/\/+$/, ''))
-  return staging ? `Voice · staging ${staging[1]}` : 'Voice'
+// The panel's title says when voice runs a staging install (staging.sh), whose version ends in "-staging.<commit>",
+// so you never mistake a branch for the release. Read from the plugin's own plugin.json: a staging install runs
+// straight from its worktree, so its folder's name says nothing.
+let stagingCommit: string | undefined
+const readStaging = async ($: Dollar) => {
+  const plugin = await readJson<{ version?: string }>($, `${$.plugin.root}/.claude-plugin/plugin.json`)
+  stagingCommit = /-staging\.([0-9a-f]+)$/.exec(plugin?.version ?? '')?.[1]
 }
+const paneTitle = (_$: Dollar): string => (stagingCommit ? `Voice · staging ${stagingCommit}` : 'Voice')
 // Your messages' bubbles in the panel: a see-through mid gray, so they sit right in a light or a dark
 // theme, with the theme's own text color.
 const BUBBLE = 'rgba(128, 128, 128, 0.12)'
@@ -901,6 +904,7 @@ export const register: Register = on => {
   // starting (it was asleep, or loaded later) registers then, so voice can follow you there.
   on('session.attach', { surface: 'desktop' }, async ($, e, next) => {
     const attached = await next(e)
+    await readStaging($)
     if (!polling && !isTalker) void connect($)
     return attached
   })
@@ -912,7 +916,8 @@ export const register: Register = on => {
       return next(e)
     }
     logLabel = `${(await $.session.id()).slice(0, 8)} ${(await $.session.cwd()).split('/').pop()}`
-    vlog($, 'mod loaded')
+    await readStaging($)
+    vlog($, 'mod loaded' + (stagingCommit ? `: staging ${stagingCommit}` : ''))
     await $.command.register({
       name: 'talk',
       description: 'Toggle open-mic voice mode: talk to this session while it works',
