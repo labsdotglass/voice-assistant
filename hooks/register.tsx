@@ -74,6 +74,12 @@ const UV_SETUP = /^(Using CPython|Creating virtual environment|Resolved|Download
 
 // The transcript side panel: what you said, what the voice said, what went to the session.
 const PANE = 'voice-transcript'
+// The panel's title says when voice runs a staging install (staging.sh): its version ends in "-staging.<commit>",
+// and the plugin's folder is named after it, so you never mistake a branch for the release.
+const paneTitle = ($: { plugin: { root: string } }): string => {
+  const staging = /-staging\.([0-9a-f]+)$/.exec($.plugin.root.replace(/\/+$/, ''))
+  return staging ? `Voice · staging ${staging[1]}` : 'Voice'
+}
 // Your messages' bubbles in the panel: a see-through mid gray, so they sit right in a light or a dark
 // theme, with the theme's own text color.
 const BUBBLE = 'rgba(128, 128, 128, 0.12)'
@@ -500,7 +506,7 @@ async function handle($: Dollar, cmd: Command) {
   } else if (cmd.type === 'panel') {
     // Show / Hide transcript from the orb's right-click menu.
     vlog($, `orb menu: ${cmd.show ? 'show' : 'hide'} the panel`)
-    if (cmd.show) await $.ui.open({ id: PANE, title: 'Voice' })
+    if (cmd.show) await $.ui.open({ id: PANE, title: paneTitle($) })
     else await $.ui.close({ id: PANE }).catch(() => undefined)
     await syncPanel($)
   } else if (cmd.type === 'clear') {
@@ -644,7 +650,7 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
   void update($, voice, () => 'starting')
   void update($, startStep, () => START_STEP.starting)
   // A first run's window is the one to look at: the panel comes once it's gone (turnOn).
-  if (!firstTour && !firstRunOpen) void $.ui.open({ id: PANE, title: 'Voice' })
+  if (!firstTour && !firstRunOpen) void $.ui.open({ id: PANE, title: paneTitle($) })
   // /talk again after Couldn't install: the window goes back to Setting up.
   if (firstTour) await $.process.run([uv, 'run', '--no-project', '--directory', $.plugin.root, 'onboarding.py', '--install-retry']).catch(() => undefined)
   // The first start sets up the Python packages, builds the orb and downloads the speech models
@@ -867,7 +873,7 @@ async function turnOn($: Dollar, why: string) {
         firstRunOpen = false
         await watchHiddenSetup($, false)
         // The window is gone (Start talking, or closed): now the panel, which start() left closed meanwhile.
-        if (await read($, isOn).catch(() => false)) void $.ui.open({ id: PANE, title: 'Voice' })
+        if (await read($, isOn).catch(() => false)) void $.ui.open({ id: PANE, title: paneTitle($) })
       })
       return
     }
@@ -1136,7 +1142,7 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'voice-panel' }, async $ => {
-    await $.ui.open({ id: PANE, title: 'Voice' })
+    await $.ui.open({ id: PANE, title: paneTitle($) })
     return {}
   })
 
@@ -1243,7 +1249,7 @@ export const register: Register = on => {
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
-        {!setup && starting && <Button key="voice-starting" label={starting} variant="secondary" dimColor onPress={() => void $.ui.open({ id: PANE, title: 'Voice' })} />}
+        {!setup && starting && <Button key="voice-starting" label={starting} variant="secondary" dimColor onPress={() => void $.ui.open({ id: PANE, title: paneTitle($) })} />}
         <Button
           key="voice-toggle"
           label={isVoiceOn ? 'Stop voice' : 'Start voice'}

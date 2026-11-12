@@ -7,7 +7,7 @@ Voice keeps what a user tells it about how to talk in their own `~/.voice-assist
 1. Edit `SYSTEM_PROMPT` in `talker.py`. A request about the voice itself (speed, voice) goes to Kokoro's settings in `daemon.py` instead; the voices offered in the orb's menu, and the Pass on my words modes, are in `settings.py`.
 2. Run `uv run run_tests.py` (every check, in parallel; `--changed` for only what your edits affect while iterating), plus a targeted check of the new behavior; if it's worth keeping, add it to `tests/test_naming.py` or a new `tests/test_*.py` listed in `run_tests.py`.
 3. Commit and push.
-4. Restart voice so the daemon runs the new code: `pkill -f "python3 daemon.py --socket"`. The session that has voice starts it again within seconds (check `~/.voice-assistant/logs/voice.log` for "voice daemon starting").
+4. Voice runs the installed plugin, not this checkout (see "How changes reach running sessions"): to hear the change before it's merged, `./staging.sh on` and restart the Claude app; once merged, update the plugin. `pkill -f "python3 daemon.py --socket"` restarts the daemon from whatever is installed (the session that has voice starts it again within seconds; `~/.voice-assistant/logs/voice.log`'s "voice daemon starting" line says which version, and "STAGING" with the branch for a staging install).
 
 ## Releasing to other people
 
@@ -26,9 +26,10 @@ Others install voice-mode from the plugin marketplace, and `claude plugin update
 
 ## How changes reach running sessions
 
-- The mod (the repo root: `.claude-plugin/plugin.json`, `hooks/register.tsx`) is loaded from `CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`, and `CLAUDE_CODE_PLUGIN_DIR_WATCH=1` there makes every open session reload it when a file in it is saved (after the turn that edits it ends). No version bump is needed; a session started before that setting existed has to be reopened once. A reload resets the mod's own variables, including voice's queued prompts.
+- Voice runs from the installed plugin, `~/.claude/plugins/cache/<marketplace>/voice-mode/<version>/`, never from this checkout: the mod starts the daemon from its own folder (`$.plugin.root`, `hooks/register.tsx`). The release comes from the `voice-assistant` marketplace, which follows GitHub `main`: a merged, version-bumped change reaches you with `claude plugin marketplace update voice-assistant`, `claude plugin update voice-mode@voice-assistant` and a restart of the Claude app (Cmd-Q).
+- **Staging**, to try a branch in the real app before merging: `./staging.sh on [branch]` installs the branch from a second marketplace, `voice-assistant-staging` in `~/.voice-assistant/staging` (a worktree of the branch, its version marked `-staging.<commit>`), and disables the release; `./staging.sh off` switches back; `./staging.sh status` says which runs. Restart the Claude app after either. Both share `~/.voice-assistant` (settings, voice prints, the built app and its microphone permission, the Python packages), so only one runs at a time. While staging runs, the Voice panel's title says "staging" and the commit. Commit first: only committed work is staged.
 - The first run's window talks to the daemon through `~/.voice-assistant/first-run.json` (phase) and `first-run-request` (its answers), in `first_run.py`; its copy lives in `orb-page/src/first-run-text.json`, with every language (`test_translations.py` checks).
-- The daemon and talker (`daemon.py`, `talker.py`, `focus.py`, `helper_transport.py`) only change when voice restarts (step 4).
+- The daemon and talker (`daemon.py`, `talker.py`, `focus.py`, `helper_transport.py`) only change when voice restarts.
 
 These rules are for the voice front only. They change how the talker speaks, not how Claude writes in sessions.
 
