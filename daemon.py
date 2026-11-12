@@ -33,7 +33,6 @@ from pathlib import Path
 
 from aiohttp import web
 from loguru import logger
-from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.frames.frames import TTSSpeakFrame, TTSUpdateSettingsFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -58,7 +57,7 @@ from focus import FocusWatcher
 from interim import InterimTranscriber, SaidSoFar, load_speech_models, set_draft_language
 from hebrew_voice import KokoroAnyLanguage, load_fast_hebrew, load_fast_kokoro
 from speaker import CAPTURE, SKIPPED, VOICEPRINT, EnrollPhrases, should_offer, SpeakerCheck, SpeakerGate, Verdict, VoicePrint, load_encoder
-from helper_transport import HANDOFF, HANDOFF_ENV, BargeInGate, HallucinationFilter, HelperAudioTransport, QuestionEndsTurn, WhisperKeepingYou
+from helper_transport import HANDOFF, HANDOFF_ENV, BargeInGate, HallucinationFilter, HelperAudioTransport, QuestionEndsTurn, TracingVAD, WhisperKeepingYou
 from dropped import DROPS
 from talker import ENDING, ENROLLING, FEED, FIRST_RUN, FIRST_TOUR, GREETING_RELEASED, RESTART, VOICE_STATE, mark_restart, restart_reason, MENU, TOUR_OPEN, tour_is_open, NEW_SESSION, OUTBOX, PROGRESS_OFF, SPEECH_READY, TASKS, Talker, VoiceStateReporter, emit, set_pass_on
 
@@ -408,7 +407,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
         else "[speaker] no voice print enrolled: answering every voice"
     )
 
-    vad = SileroVADAnalyzer()
+    vad = TracingVAD()  # Silero, logging what it took to talk over voice ([barge] lines, #30)
     aggregators = LLMContextAggregatorPair(
         LLMContext(),
         user_params=LLMUserAggregatorParams(

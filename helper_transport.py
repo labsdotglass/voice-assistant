@@ -28,7 +28,8 @@ from pipecat.frames.frames import (
     TranscriptionFrame,
 )
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
-from pipecat.audio.vad.vad_analyzer import VADAnalyzer, VADParams
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADAnalyzer, VADParams, VADState
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.whisper.stt import WhisperSTTServiceMLX
 from pipecat.transports.base_input import BaseInputTransport
@@ -394,6 +395,7 @@ class HelperOutput(BaseOutputTransport):
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         if isinstance(frame, InterruptionFrame):
             self._helper.flush()  # drop what the speaker still has queued, right now
+            BARGE.flushed(time.monotonic())
             self._play_until = 0.0
         await super().process_frame(frame, direction)
 
@@ -446,6 +448,119 @@ class QuestionEndsTurn(TurnAnalyzerUserTurnStopStrategy):
         await super()._handle_transcription(frame)
 
 
+class BargeInTrace:
+    """What it took to talk over voice (#30), in the log as [barge] lines. It changes nothing.
+
+    While voice speaks, the VAD's strict params (BargeInGate) decide whether you're heard. Each Silero frame the
+    normal params would count as speech starts or continues a run of your speech. The run ends one of three
+    ways, each logged with how long it lasted, its loudest volume and surest confidence, and how many of its
+    frames passed the strict check: the VAD heard you ("heard", then the speaker's flush, timed from there);
+    you stopped and it never did ("missed"); or voice finished speaking first, so you were heard only after
+    it ("late"). The VAD's params set again mid-run is logged too ("restart"): that starts its count over.
+    """
+
+    GAP = 0.5  # this long without a speech frame ends a run
+
+    def __init__(self):
+        self.strict: VADParams | None = None  # the strict params while voice speaks, else None
+        self.normal: VADParams | None = None
+        self.events: list[tuple[str, dict]] = []  # the last few, for the checks
+        self._heard_at: float | None = None  # when the VAD heard you, until the flush
+        self._reset()
+
+    def _reset(self):
+        self._start = self._last = None
+        self._frames = self._passed = 0
+        self._conf = self._vol = 0.0
+
+    def _event(self, kind: str, line: str, **info):
+        self.events = self.events[-20:] + [(kind, info)]
+        logger.info(f"[barge] {line}")
+
+    def _stats(self, now: float | None = None) -> dict:
+        return {"secs": round((now if now is not None else self._last) - self._start, 2), "conf": round(self._conf, 2),
+                "vol": round(self._vol, 2), "passed": self._passed, "frames": self._frames}
+
+    @staticmethod
+    def _summary(s: dict) -> str:
+        return (f"{s['secs']:.2f}s of your speech, loudest {s['vol']:.2f}, surest {s['conf']:.2f}, "
+                f"{s['passed']}/{s['frames']} frames passed the strict check")
+
+    def frames(self, scores: list[tuple[float, float]], speaking: bool, now: float, frame_secs: float):
+        """One analyzer pass: each frame's (confidence, volume), oldest first, and whether the VAD now says speaking."""
+        strict, normal = self.strict, self.normal
+        if strict is None or normal is None:
+            return
+        for i, (conf, vol) in enumerate(scores):
+            t = now - (len(scores) - 1 - i) * frame_secs
+            if conf >= normal.confidence and vol >= normal.min_volume:
+                if self._start is None:
+                    self._start = t
+                self._last = t
+                self._frames += 1
+                self._passed += conf >= strict.confidence and vol >= strict.min_volume
+                self._conf, self._vol = max(self._conf, conf), max(self._vol, vol)
+            elif self._start is not None and t - self._last > self.GAP:
+                s = self._stats()
+                self._event("missed", f"missed: {self._summary(s)}; voice kept talking", **s)
+                self._reset()
+        if speaking and self._start is not None:
+            s = self._stats(now)
+            self._event("heard", f"heard you after {self._summary(s)}", **s)
+            self._heard_at = now
+            self._reset()
+
+    def bot_stopped(self, now: float):
+        """Voice stopped speaking: a run still going is heard only now, with the normal params."""
+        if self._start is not None:
+            s = self._stats(now)
+            self._event("late", f"late: voice finished speaking before it heard you, {self._summary(s)}", **s)
+        self._reset()
+
+    def restarted(self, why: str):
+        """The VAD's params are about to be set again while it counts your speech: its count starts over."""
+        if self._start is not None:
+            self._event("restart", f"the VAD starts counting your speech over ({why})")
+
+    def flushed(self, now: float):
+        """The speaker dropped what it had queued (an InterruptionFrame reached the output)."""
+        if self._heard_at is not None:
+            secs = round(now - self._heard_at, 3)
+            self._event("flushed", f"speaker stopped {secs:.3f}s after the VAD heard you", secs=secs)
+            self._heard_at = None
+
+
+BARGE = BargeInTrace()
+
+
+class TracingVAD(SileroVADAnalyzer):
+    """Silero, handing each frame's confidence and volume to BARGE. Runs in the VAD's own thread."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._scores: list[tuple[float, float]] = []
+        self._conf = 0.0
+
+    def voice_confidence(self, buffer) -> float:
+        self._conf = super().voice_confidence(buffer)
+        return self._conf
+
+    def _get_smoothed_volume(self, audio: bytes) -> float:
+        volume = super()._get_smoothed_volume(audio)
+        self._scores.append((self._conf, volume))
+        return volume
+
+    def _run_analyzer(self, buffer: bytes) -> VADState:
+        state = super()._run_analyzer(buffer)
+        scores, self._scores = self._scores, []
+        if scores:
+            try:
+                BARGE.frames(scores, state == VADState.SPEAKING, time.monotonic(), self._vad_frames / self.sample_rate)
+            except Exception as e:  # logging only: never in the way of hearing you
+                logger.warning(f"[barge] trace failed: {e}")
+        return state
+
+
 class BargeInGate(FrameProcessor):
     """Makes the VAD stricter while the assistant speaks.
 
@@ -459,12 +574,17 @@ class BargeInGate(FrameProcessor):
         self._vad = vad
         self._normal = vad.params
         self._strict = VADParams(confidence=0.85, start_secs=0.3, stop_secs=self._normal.stop_secs, min_volume=0.8)
+        BARGE.normal = self._normal
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
         if isinstance(frame, BotStartedSpeakingFrame):
+            BARGE.restarted("voice started speaking")
             self._vad.set_params(self._strict)
+            BARGE.strict = self._strict
         elif isinstance(frame, BotStoppedSpeakingFrame):
+            BARGE.strict = None
+            BARGE.bot_stopped(time.monotonic())
             self._vad.set_params(self._normal)
         await self.push_frame(frame, direction)
 
