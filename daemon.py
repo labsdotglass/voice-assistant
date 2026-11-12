@@ -677,6 +677,8 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
     if orb:
         TASKS.on_change = orb.set_tasks  # the orb's queued-task badge and panel
         DROPS.on_cue = orb.dropped  # what was likely you, dropped: a ring on the orb and a short sound
+        # The mic went dead while voice is on (the orb shows it): voice says so once; back, it stops saying it.
+        orb.on_mic = lambda dead, why: talker.on_session_event({"type": "mic_dead" if dead else "mic_back", "why": why})
         orb.on_setting = on_setting
         orb.set_settings(orb_menu())
     try:

@@ -113,6 +113,32 @@
 .stage[data-opening][data-hover] .opening,
 .stage[data-voice='starting'][data-hover] .opening { opacity: 0; }
 
+/* The mic gives no sound while voice is on: the orb goes gray (it can't hear you), with a crossed-out mic in its middle, in the dots' and the
+   spinner's place, drawn in their white with the same faint indigo edge, so it reads on the sky and the cloud.
+   Hovering swaps it for the handle, as it does them. */
+.mic-off {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24%;
+  fill: none;
+  stroke: rgb(255 255 255 / 0.95);
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 1px rgb(30 50 140 / 0.35)) drop-shadow(0 1px 2px rgb(30 50 140 / 0.35));
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+
+.avatar { transition: filter 400ms ease-out; }
+.stage[data-mic-dead] .avatar { filter: grayscale(1) brightness(0.62); }  /* darker, so the white icon reads on it */
+.stage[data-mic-dead] .mic-off { opacity: 1; }
+.stage[data-mic-dead] .working,
+.stage[data-mic-dead] .opening,
+.stage[data-mic-dead][data-hover] .mic-off { opacity: 0; }
+
 /* The ring: just outside the orb, voice's way to say something about itself. "dropped" flashes it once,
    amber: voice heard you and dropped it, so say it again. It fades out on its own. */
 .ring {
