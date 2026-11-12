@@ -37,7 +37,7 @@ def ensure_subscription_auth():
     except ValueError:  # no output, or not JSON: treated as not signed in
         status = {}
     method = status.get("authMethod") if isinstance(status, dict) else None
-    if not method:
+    if not method or method == "none" or status.get("loggedIn") is False:  # signed out reads authMethod "none"
         failure.record(failure.SIGN_IN)
         raise SystemExit("Not signed in to Claude Code. Refusing to start.")
     if method != "claude.ai":

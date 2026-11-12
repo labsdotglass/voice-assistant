@@ -40,7 +40,7 @@ def login(stdout: str) -> dict | None:
 
 
 def logins():
-    for out, what in [("", "empty output"), ("not json", "output that isn't JSON"), ('{"loggedIn": false}', "no login")]:
+    for out, what in [("", "empty output"), ("not json", "output that isn't JSON"), ('{"loggedIn": false}', "no login"), ('{"loggedIn": false, "authMethod": "none"}', "signed out")]:
         said = login(out)
         ok(bool(said) and said["final"] and "sign in" in said["why"].lower(), f"{what}: says to sign in ({said})")
     said = login('{"authMethod": "api_key"}')
