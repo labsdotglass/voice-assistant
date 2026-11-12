@@ -14,6 +14,12 @@ muted while the assistant speaks unless --headphones. PyAudio isn't installed by
 PortAudio): brew install portaudio, then uv run --extra no-aec daemon.py --no-aec.
 """
 
+if __name__ == "__main__":
+    # The orb, with its spinner, before the imports below (seconds of them): early_orb says when it does this.
+    import early_orb
+
+    early_orb.start()
+
 import argparse
 import asyncio
 import json

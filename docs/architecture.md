@@ -44,6 +44,8 @@ Typical speed on Apple silicon: Whisper about 0.3 s for a short utterance; the t
 
 `orb-page/` is a small Vite app that renders the orb (`AiAvatar`, WebGPU) on a transparent page, and builds the first run's window. The built pages (`orb-page/dist/orb.html`, `onboarding.html`) are committed, so running voice needs no Node. The helper loads each page as a string with an https base, because WebKit won't run module scripts from `file://` and WebGPU needs a secure context. The orb's state arrives on "S" messages from the daemon; session busy shows as three soft dots inside it.
 
+A start brings the orb up first: `daemon.py` calls `early_orb.start()` before its imports (pipecat, torch and MLX take about 4 s warm and 10 s cold), so the orb shows within a second, with its spinner, until voice can listen. `AudioHelper` then adopts that helper. Not on a first run, a restart in place, or when the helper or app needs building.
+
 A language switch restarts voice in place: the daemon re-executes itself and hands on the audio helper, the socket and the registered sessions, so the orb stays where it is with its spinner.
 
 ## Where things live
@@ -58,6 +60,7 @@ A language switch restarts voice in place: the daemon re-executes itself and han
 - `speaker.py`, `enroll_voice.py`: answering only your voice, and learning it.
 - `settings.py`, `languages.json`: the orb menu's settings and the languages.
 - `interim.py`: the draft line. `focus.py`: which session you're in. `new_session.py`: starting and finding sessions. `claude_login.py`: the subscription check. `failure.py`: why voice can't run, left in `run/failure` for the plugin to show instead of starting it again.
+- `early_orb.py`: the orb up before the daemon's imports.
 - `helper_transport.py`, `audio_helper/main.swift`, `audio_helper/launcher.swift`: the audio helper and the app that runs it, so macOS asks for the microphone under its name.
 - `onboarding.py`, `first_run.py`, `audio_helper/onboarding.swift`, `orb-page/src/tour.tsx`: the first run's window. Its words, in every language, are in `orb-page/src/first-run-text.json`.
 - `hebrew_voice.py`, `hebrew_mlx.py`, `hebrew_terms.py`: Hebrew.

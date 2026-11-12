@@ -42,32 +42,13 @@ from pipecat.utils.types import assert_given, require_given
 
 from talker import emit
 
-HELPER = Path(__file__).parent / "bin" / "audio_helper"
-HELPER_SOURCE = Path(__file__).parent / "audio_helper" / "main.swift"
-# The helper runs through Voice Assistant.app, so macOS lists its microphone permission under that name.
-APP = Path(__file__).parent / "bin" / "Voice Assistant.app"
-LAUNCHER = APP / "Contents" / "MacOS" / "voice-assistant"
-LAUNCHER_SOURCE = Path(__file__).parent / "audio_helper" / "launcher.swift"
-APP_ICON = Path(__file__).parent / "audio_helper" / "VoiceAssistant.icns"  # drawn by audio_helper/make_icon.swift
-APP_INFO = {
-    "CFBundleName": "Voice Assistant",
-    "CFBundleDisplayName": "Voice Assistant",
-    # A new id is a new app to macOS: it asks once more for the microphone (and Accessibility). build_app sees
-    # the Info.plist differ and rebuilds the app on the next start.
-    "CFBundleIdentifier": "glass.labs.voice-assistant",
-    "CFBundleExecutable": "voice-assistant",
-    "CFBundleIconFile": "VoiceAssistant",
-    "CFBundlePackageType": "APPL",
-    "CFBundleShortVersionString": "1.0",
-    "CFBundleVersion": "1",
-    "LSUIElement": True,
-    "NSMicrophoneUsageDescription": "Voice Assistant listens so you can talk to Claude Code.",
-}
+import early_orb
+from early_orb import APP, APP_ICON, APP_INFO, HELPER, HELPER_SOURCE, LAUNCHER, LAUNCHER_SOURCE, ORB_PAGE
 
 
 async def build_helper():
     """Builds the audio helper on first start, or after its source changed (it isn't in git)."""
-    if HELPER.exists() and HELPER.stat().st_mtime >= HELPER_SOURCE.stat().st_mtime:
+    if early_orb.helper_built(HELPER, HELPER_SOURCE):
         return
     logger.info("[lifecycle] building the audio helper (first start, or its source changed)")
     HELPER.parent.mkdir(exist_ok=True)
@@ -88,9 +69,7 @@ async def build_app():
     """Builds Voice Assistant.app, the helper's launcher, on first start or after its source changed.
     It's rebuilt rarely on purpose: macOS ties the microphone permission to this exact build."""
     info, resources = APP / "Contents" / "Info.plist", APP / "Contents" / "Resources"
-    built = LAUNCHER.stat().st_mtime if LAUNCHER.exists() else 0
-    if (built >= max(LAUNCHER_SOURCE.stat().st_mtime, APP_ICON.stat().st_mtime)
-            and info.exists() and plistlib.loads(info.read_bytes()) == APP_INFO):
+    if early_orb.app_built(APP, LAUNCHER, LAUNCHER_SOURCE, APP_ICON):
         return
     logger.info("[lifecycle] building Voice Assistant.app")
     LAUNCHER.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +83,6 @@ async def build_app():
         if proc.returncode:
             raise RuntimeError(f"couldn't build Voice Assistant.app ({cmd[0]}): " + err.decode(errors="replace")[-400:])
     logger.info("[lifecycle] Voice Assistant.app built")
-ORB_PAGE = Path(__file__).parent / "orb-page" / "dist" / "orb.html"
 MIC_RATE = 16000
 MIC_CHUNK = MIC_RATE // 50 * 2  # 20 ms of int16 mono
 LEAD_SECS = 0.15  # how far playback may run ahead of real time; bounds what a flush has to drop
@@ -195,17 +173,26 @@ class AudioHelper:
                 self._send_orb()
                 self._send(b"V", b"1" if self._panel_visible else b"0")
                 return
-            try:
-                await build_helper()
-                await build_app()
-            except RuntimeError:
-                failure.record(failure.cant_build("its audio"))
-                raise
-            self.proc = await asyncio.create_subprocess_exec(
-                str(LAUNCHER), str(HELPER), "--out-rate", str(self.out_rate), *self.orb_args(),
-                stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-            )
-            logger.info(f"[lifecycle] audio helper started (pid {self.proc.pid}), orb {'on' if self._has_orb else 'off'}")
+            early = early_orb.take(self.out_rate) if self._has_orb and not self._orb["hidden"] else None
+            if early and _alive_child(early["pid"]):
+                # Started before the daemon's imports (early_orb): the orb has been up, with its spinner, since.
+                self.proc = await AdoptedHelper.adopt(early)
+                logger.info(f"[lifecycle] audio helper started early (pid {self.proc.pid}), "
+                            f"{time.monotonic() - early['at']:.1f}s ago: the orb was up meanwhile")
+            else:
+                if early:
+                    os.close(early["stdin"])  # not wanted after all (the orb is hidden): the helper leaves
+                try:
+                    await build_helper()
+                    await build_app()
+                except RuntimeError:
+                    failure.record(failure.cant_build("its audio"))
+                    raise
+                self.proc = await asyncio.create_subprocess_exec(
+                    str(LAUNCHER), str(HELPER), "--out-rate", str(self.out_rate), *self.orb_args(),
+                    stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                )
+                logger.info(f"[lifecycle] audio helper started (pid {self.proc.pid}), orb {'on' if self._has_orb else 'off'}")
             line = (await self.proc.stderr.readline()).decode().strip()
             logger.info(line)
             if "ready" not in line:
