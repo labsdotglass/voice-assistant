@@ -191,29 +191,56 @@ def short_ids(text: str) -> str:
 class TaskBoard:
     """Your queued tasks and their status, for the orb's badge and task panel.
 
-    A task is a prompt voice held because the session was busy: waiting while queued, running
-    once the mod sent it, done when that turn finishes, cancelled if you took it back. The last
-    KEEP are kept; `on_change(snapshot)` is the orb.
+    A task is a prompt voice held because its session was busy: waiting while queued, running
+    once the mod sent it, done when that turn finishes, cancelled if you took it back. Each belongs
+    to its session, and every session's events reach it (daemon.py), not only the one voice talks
+    to: a prompt sent or finished while you're elsewhere is never left waiting. The orb shows the
+    session you're in. The last KEEP are kept; `on_change(snapshot)` is the orb.
     """
 
     KEEP = 10
 
     def __init__(self):
-        self.tasks: list[dict] = []  # {id, text, status}, oldest first
+        self.tasks: list[dict] = []  # {id, text, status, session}, oldest first
+        self.busy: set = set()  # sessions working on a turn
+        self.current = None  # the session voice talks to: the one the orb shows
         self.on_change = None
 
     def _find(self, task_id: str) -> dict | None:
         return next((t for t in self.tasks if t["id"] == task_id), None)
 
-    def waiting(self, items: list[dict]):
-        """The mod's queue as it stands: new ones are waiting."""
-        for item in items:
-            if not self._find(item["id"]):
-                self.tasks.append({"id": item["id"], "text": item["text"], "status": "waiting"})
+    def on_event(self, ev: dict):
+        """A session's event, whichever session it's from."""
+        kind, session = ev.get("type"), ev.get("session")
+        if kind == "queue":
+            self.waiting(list(ev.get("items") or []), session)
+        elif kind == "queue_started":
+            self.started(ev.get("id", ""), ev.get("text", ""), session)
+        elif kind == "turn_start":
+            self.busy.add(session)
+        elif kind == "turn_complete":
+            self.busy.discard(session)
+            self.turn_done(session)
+
+    def show(self, session):
+        """You're in another session now: the orb shows its tasks."""
+        self.current = session
         self._changed()
 
-    def started(self, task_id: str, text: str = ""):
-        task = self._find(task_id) or {"id": task_id, "text": text, "status": "waiting"}
+    def waiting(self, items: list[dict], session=None):
+        """The mod's queue as it stands: new ones are waiting. One waiting here that's no longer in it was
+        sent (one taken back is cancelled already): running while its session works, else done."""
+        ids = {item["id"] for item in items}
+        for task in self.tasks:
+            if task["status"] == "waiting" and task["session"] == session and task["id"] not in ids:
+                task["status"] = "running" if session in self.busy else "done"
+        for item in items:
+            if not self._find(item["id"]):
+                self.tasks.append({"id": item["id"], "text": item["text"], "status": "waiting", "session": session})
+        self._changed()
+
+    def started(self, task_id: str, text: str = "", session=None):
+        task = self._find(task_id) or {"id": task_id, "text": text, "status": "waiting", "session": session}
         if task not in self.tasks:
             self.tasks.append(task)
         task["status"] = "running"
@@ -225,21 +252,25 @@ class TaskBoard:
                 task["status"] = "cancelled"
         self._changed()
 
-    def turn_done(self):
-        """The session finished a turn: the task it was running is done."""
+    def turn_done(self, session=None):
+        """A session finished a turn: the task it was running is done."""
         for task in self.tasks:
-            if task["status"] == "running":
+            if task["status"] == "running" and task["session"] == session:
                 task["status"] = "done"
         self._changed()
 
+    def _shown(self) -> list[dict]:
+        return [t for t in self.tasks if self.current is None or t["session"] in (self.current, None)]
+
     def snapshot(self) -> dict:
+        shown = self._shown()
         return {
-            "waiting": sum(t["status"] == "waiting" for t in self.tasks),
-            "tasks": [{"text": t["text"][:200], "status": t["status"]} for t in self.tasks],
+            "waiting": sum(t["status"] == "waiting" for t in shown),
+            "tasks": [{"text": t["text"][:200], "status": t["status"]} for t in shown],
         }
 
     def _changed(self):
-        counts = {s: sum(t["status"] == s for t in self.tasks) for s in ("waiting", "running", "done", "cancelled")}
+        counts = {s: sum(t["status"] == s for t in self._shown()) for s in ("waiting", "running", "done", "cancelled")}
         logger.info("[tasks] " + ", ".join(f"{n} {s}" for s, n in counts.items() if n))
         while len(self.tasks) > self.KEEP:  # drop the oldest finished first; open ones always stay
             finished = next((t for t in self.tasks if t["status"] in ("done", "cancelled")), None)
@@ -436,6 +467,7 @@ class SessionFeed:
         """Record an event; returns True when it's worth announcing unprompted."""
         kind = ev.get("type")
         if kind == "turn_start":
+            TASKS.on_event(ev)
             # New input reached the session (a button clicked, words typed or sent): its closing question is gone.
             for fid in list(self.buttons):
                 self.forms.pop(fid, None)
@@ -451,13 +483,13 @@ class SessionFeed:
             self.quiet_next = False
             self.busy = False
             self.request = ""
-            TASKS.turn_done()
+            TASKS.on_event(ev)
             self.last_answer = ev.get("answer", "") or self.last_answer
             self.pending.append(f"[session answered your skip: {clip_answer(ev.get('answer', ''))}]")
             return False
         elif kind == "turn_complete":
             self.busy = False
-            TASKS.turn_done()
+            TASKS.on_event(ev)
             secs = round(ev.get("durationMs", 0) / 1000)
             how = "was interrupted" if ev.get("isAborted") else f"finished after {secs}s"
             self.last_answer = ev.get("answer", "") or self.last_answer
@@ -467,6 +499,8 @@ class SessionFeed:
             return not ev.get("isAborted")
         elif kind == "switched":
             self.busy = bool(ev.get("busy"))
+            (TASKS.busy.add if self.busy else TASKS.busy.discard)(ev.get("session"))
+            TASKS.show(ev.get("session"))  # the orb's tasks: the session you're in now
             title, sid, project = ev.get("title"), ev.get("session"), ev.get("project") or "an unknown project"
             # The ID is written for prompts to the session, never for saying: the talker reads aloud what sits next to the name.
             which = f"\"{title}\" in the {project} project" if title else f"a session with no name, in the {project} project"
@@ -653,9 +687,9 @@ class SessionFeed:
             return True
         elif kind == "queue":
             self.queued = list(ev.get("items") or [])
-            TASKS.waiting(self.queued)
+            TASKS.on_event(ev)
         elif kind == "queue_started":
-            TASKS.started(ev.get("id", ""), ev.get("text", ""))
+            TASKS.on_event(ev)
         elif kind == "question":
             questions = list(ev.get("questions") or [])
             self.forms[ev.get("id", "")] = questions
