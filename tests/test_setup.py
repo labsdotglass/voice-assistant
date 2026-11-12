@@ -1,6 +1,6 @@
 """setup.py and the audio app's build (no models, no network, no Swift): a failed download ends in NOT READY with
-its reason and no traceback, the login is checked before anything downloads, and an app built under the old
-bundle id is rebuilt under the new one, once."""
+its reason and no traceback, the login is checked before anything downloads, and voice's programs are built
+once into ~/.voice-assistant/bin, kept through an update, and rebuilt only when their source changes."""
 
 import _root  # noqa: F401  (the repo root on the import path)
 import asyncio
@@ -76,45 +76,57 @@ ok(code == 1 and "couldn't build the audio app" in text and "Traceback" not in t
 text, code, _ = run_setup(login="console")
 ok(code == 1 and "not logged in with a Claude subscription" in text, "not on the subscription: NOT READY")
 
-# The bundle id: an app built under the old id is rebuilt (its Info.plist differs), then left alone.
-ok(helper_transport.APP_INFO["CFBundleIdentifier"] == "glass.labs.voice-assistant", "the app's bundle id is glass.labs.voice-assistant")
+# The programs voice builds (builds.py), in a stand-in ~/.voice-assistant/bin with swiftc and codesign faked:
+# built once, left alone by an update (the same source, in a new folder with new dates), rebuilt when the
+# source or the app's Info.plist (its bundle id) changes.
+import builds  # noqa: E402
+
+ok(builds.APP_INFO["CFBundleIdentifier"] == "glass.labs.voice-assistant", "the app's bundle id is glass.labs.voice-assistant")
 with tempfile.TemporaryDirectory() as d:
     tmp = Path(d)
-    ht = helper_transport
-    ht.APP = tmp / "Voice Assistant.app"
-    ht.LAUNCHER = ht.APP / "Contents" / "MacOS" / "voice-assistant"
-    ht.LAUNCHER_SOURCE, ht.APP_ICON = tmp / "launcher.swift", tmp / "VoiceAssistant.icns"
-    ht.LAUNCHER_SOURCE.write_text("// source")
-    ht.APP_ICON.write_bytes(b"icon")
-    ht.LAUNCHER.parent.mkdir(parents=True)
-    ht.LAUNCHER.write_text("built")
-    future = time.time() + 60
-    os.utime(ht.LAUNCHER, (future, future))  # built after its sources: only the plist can call for a rebuild
-    (ht.APP / "Contents" / "Info.plist").write_bytes(plistlib.dumps({**ht.APP_INFO, "CFBundleIdentifier": "dev.voice-assistant.app"}))
+    real = (builds.BIN, builds.BUILT, builds.subprocess.run, dict(builds.APP_INFO))
+    builds.BIN = tmp / "bin"
+    builds.BUILT = builds.BIN / "built.json"
+    app, helper = builds.BIN / "Voice Assistant.app", builds.BIN / "audio_helper"
+    plugin = tmp / "0.1.0"
+    plugin.mkdir()
+    source, icon, helper_source = plugin / "launcher.swift", plugin / "VoiceAssistant.icns", plugin / "main.swift"
+    source.write_text("// launcher")
+    icon.write_bytes(b"icon")
+    helper_source.write_text("// helper")
     ran = []
 
-    class Done:
-        returncode = 0
-
-        async def communicate(self):
-            return b"", b""
-
-    async def fake_exec(*cmd, **_):
+    def fake_run(cmd, **_):
         ran.append(cmd[0])
-        return Done()
+        if cmd[0] == "xcrun":
+            Path(cmd[-1]).write_text("built")
+        return type("Done", (), {"returncode": 0, "stderr": ""})()
 
-    real = asyncio.create_subprocess_exec
-    asyncio.create_subprocess_exec = fake_exec
+    builds.subprocess.run = fake_run
     try:
-        asyncio.run(ht.build_app())
-        info = plistlib.loads((ht.APP / "Contents" / "Info.plist").read_bytes())
-        ok(ran == ["xcrun", "codesign"] and info["CFBundleIdentifier"] == "glass.labs.voice-assistant",
-           f"an app built under the old id is rebuilt and signed under the new one ({ran})")
+        build = lambda: (builds.build_app(app, source, icon), builds.build_helper(helper, helper_source))  # noqa: E731
+        ok(build() == (True, True) and ran == ["xcrun", "codesign", "xcrun"], f"the first start builds both ({ran})")
+        ok(plistlib.loads((app / "Contents" / "Info.plist").read_bytes()) == builds.APP_INFO and helper.read_text() == "built",
+           "into ~/.voice-assistant/bin, with the app's Info.plist")
+        ok(not [p for p in builds.BIN.iterdir() if p.name.startswith(".")], "and nothing half-built is left beside them")
         ran.clear()
-        asyncio.run(ht.build_app())
-        ok(ran == [], "then it's left alone")
+        # An update: the same files in a new folder, all with new dates.
+        update = tmp / "0.2.0"
+        update.mkdir()
+        for f in (source, icon, helper_source):
+            (update / f.name).write_bytes(f.read_bytes())
+            os.utime(update / f.name, (time.time() + 60, time.time() + 60))
+        source, icon, helper_source = update / source.name, update / icon.name, update / helper_source.name
+        ok(build() == (False, False) and ran == [], "an update with the same source builds nothing (the microphone permission stays)")
+        builds.APP_INFO["CFBundleIdentifier"] = "dev.voice-assistant.app"
+        ok(build() == (True, False) and ran == ["xcrun", "codesign"], f"a new bundle id rebuilds the app, and only it ({ran})")
+        ran.clear()
+        helper_source.write_text("// helper, changed")
+        ok(build() == (False, True) and ran == ["xcrun"], f"a changed helper source rebuilds the helper ({ran})")
     finally:
-        asyncio.create_subprocess_exec = real
+        builds.BIN, builds.BUILT, builds.subprocess.run = real[:3]
+        builds.APP_INFO.clear()
+        builds.APP_INFO.update(real[3])
 
 print(f"\n{sum(results)}/{len(results)} passed")
 raise SystemExit(0 if all(results) else 1)

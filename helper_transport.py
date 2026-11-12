@@ -8,9 +8,7 @@ import re
 import asyncio
 import json
 import os
-import plistlib
 import signal
-import shutil
 import struct
 import time
 from pathlib import Path
@@ -42,47 +40,31 @@ from pipecat.utils.types import assert_given, require_given
 
 from talker import emit
 
+import builds
 import early_orb
-from early_orb import APP, APP_ICON, APP_INFO, HELPER, HELPER_SOURCE, LAUNCHER, LAUNCHER_SOURCE, ORB_PAGE
+from builds import HELPER, LAUNCHER
+from early_orb import ORB_PAGE
 
 
 async def build_helper():
-    """Builds the audio helper on first start, or after its source changed (it isn't in git)."""
-    if early_orb.helper_built(HELPER, HELPER_SOURCE):
+    """Builds the audio helper on first start, or after its source changed (builds keeps it across updates)."""
+    if builds.helper_built():
         return
     logger.info("[lifecycle] building the audio helper (first start, or its source changed)")
-    HELPER.parent.mkdir(exist_ok=True)
-    proc = await asyncio.create_subprocess_exec(
-        "xcrun", "swiftc", "-O", str(HELPER_SOURCE), "-o", str(HELPER),
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-    )
-    _, err = await proc.communicate()
-    if proc.returncode:
-        raise RuntimeError(
-            "couldn't build the audio helper; it needs Xcode's command line tools (xcode-select --install): "
-            + err.decode(errors="replace")[-400:]
-        )
+    await asyncio.to_thread(builds.build_helper)
     logger.info("[lifecycle] audio helper built")
 
 
 async def build_app():
     """Builds Voice Assistant.app, the helper's launcher, on first start or after its source changed.
     It's rebuilt rarely on purpose: macOS ties the microphone permission to this exact build."""
-    info, resources = APP / "Contents" / "Info.plist", APP / "Contents" / "Resources"
-    if early_orb.app_built(APP, LAUNCHER, LAUNCHER_SOURCE, APP_ICON):
+    if builds.app_built():
         return
     logger.info("[lifecycle] building Voice Assistant.app")
-    LAUNCHER.parent.mkdir(parents=True, exist_ok=True)
-    resources.mkdir(exist_ok=True)
-    info.write_bytes(plistlib.dumps(APP_INFO))
-    shutil.copyfile(APP_ICON, resources / APP_ICON.name)
-    for cmd in (["xcrun", "swiftc", "-O", str(LAUNCHER_SOURCE), "-o", str(LAUNCHER)],
-                ["codesign", "--force", "--sign", "-", str(APP)]):  # ad hoc: the bundle needs a signature
-        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        _, err = await proc.communicate()
-        if proc.returncode:
-            raise RuntimeError(f"couldn't build Voice Assistant.app ({cmd[0]}): " + err.decode(errors="replace")[-400:])
+    await asyncio.to_thread(builds.build_app)
     logger.info("[lifecycle] Voice Assistant.app built")
+
+
 MIC_RATE = 16000
 MIC_CHUNK = MIC_RATE // 50 * 2  # 20 ms of int16 mono
 LEAD_SECS = 0.15  # how far playback may run ahead of real time; bounds what a flush has to drop

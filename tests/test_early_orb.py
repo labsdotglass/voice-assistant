@@ -5,7 +5,8 @@ instead of after 4-10 s of imports. This check starts a stand-in helper the same
 it's ready on stderr, then streams "mic" bytes on stdout and echoes stdin back to a file), lets its mic fill
 the pipe for a while (the drain must keep it moving), then has AudioHelper.ensure_started adopt it: the
 same pid, still our child, its ready line read, and what AudioHelper writes reaches it. It also checks
-when an early start is wanted: not on a restart in place, a first run, --no-aec or an orb that's off.
+when an early start is wanted: not on a restart in place, a first run, --no-aec or an orb that's off; and
+that a helper that needs building is built first (after an update), then started.
 """
 
 import _root  # noqa: F401  (the repo root on the import path)
@@ -26,24 +27,51 @@ def ok(cond, msg):
 
 
 def check_wanted():
-    real = (early_orb.VOICEPRINT, early_orb.ORB_PAGE, early_orb.helper_built, early_orb.app_built)
+    real = (early_orb.VOICEPRINT, early_orb.ORB_PAGE)
     with tempfile.TemporaryDirectory() as tmp:
         print_ = Path(tmp) / "voiceprint.npy"
         print_.write_bytes(b"x")
         early_orb.VOICEPRINT, early_orb.ORB_PAGE = print_, print_
-        early_orb.helper_built = early_orb.app_built = lambda: True
         argv = ["daemon.py", "--socket", "x"]
         ok(early_orb.wanted(argv, {}), "an ordinary start brings the orb up early")
         ok(not early_orb.wanted(argv + ["--no-aec"], {}), "not with --no-aec (no helper at all)")
         ok(not early_orb.wanted(argv, {"VOICE_ORB": "0"}), "not when the orb is off")
         ok(not early_orb.wanted(argv, {"VOICE_HANDOFF": '{"helper": {"pid": 1}}'}), "not on a restart in place: its orb never went away")
         ok(not early_orb.wanted(argv, {"VOICE_FIRST_TOUR": "1"}), "not in a first run: the onboarding window shows its own orb")
-        early_orb.helper_built = lambda: False
-        ok(not early_orb.wanted(argv, {}), "not when the helper needs building: the daemon builds it first")
-        early_orb.helper_built = lambda: True
         print_.unlink()
         ok(not early_orb.wanted(argv, {}), "not without a voice print (a first run)")
-    early_orb.VOICEPRINT, early_orb.ORB_PAGE, early_orb.helper_built, early_orb.app_built = real
+    early_orb.VOICEPRINT, early_orb.ORB_PAGE = real
+
+
+def check_builds_first():
+    """After an update that changed the helper's source, start() builds it (and says so), then starts it; a
+    build that fails leaves the start to the daemon, which builds again and says why."""
+    import builds
+    import io
+    from contextlib import redirect_stdout
+
+    real = (early_orb.wanted, builds.helper_built, builds.app_built, builds.build_helper, builds.build_app, early_orb.LAUNCHER)
+    built = []
+    early_orb.wanted = lambda argv, env: True
+    builds.helper_built, builds.app_built = (lambda: False), (lambda: True)
+    builds.build_app = lambda: built.append("app")
+
+    def broken():
+        raise RuntimeError("couldn't build the audio helper (xcrun): no swiftc")
+
+    builds.build_helper = broken
+    out = io.StringIO()
+    with redirect_stdout(out):
+        started = early_orb.start()
+    ok(not started and early_orb._early is None, "a failed build: no early orb, the daemon builds it and says why")
+    ok('"step": "building"' in out.getvalue(), f"the mod was told it's building ({out.getvalue().strip()!r})")
+    builds.build_helper = lambda: built.append("helper")
+    early_orb.LAUNCHER = Path("/usr/bin/true")
+    with redirect_stdout(io.StringIO()):
+        started = early_orb.start()
+    ok(started and built == ["helper", "app"], f"built first, then started ({built})")
+    early_orb.take(24000 + 1)  # not wanted: its stdin closed, so true's gone either way
+    early_orb.wanted, builds.helper_built, builds.app_built, builds.build_helper, builds.build_app, early_orb.LAUNCHER = real
 
 
 async def check_adopt(tmp: Path):
@@ -58,8 +86,11 @@ async def check_adopt(tmp: Path):
         "head -c 400000 /dev/zero\n"
         f"cat > '{got}'\n")
     stand_in.chmod(0o755)
+    import builds
+
     early_orb.LAUNCHER = stand_in
     early_orb.wanted = lambda argv, env: True
+    builds.helper_built = builds.app_built = lambda *_: True  # no build into the real ~/.voice-assistant/bin
     began = time.monotonic()
     ok(early_orb.start(), "start() starts the helper")
     took = time.monotonic() - began
@@ -84,6 +115,7 @@ async def check_adopt(tmp: Path):
 
 def main():
     check_wanted()
+    check_builds_first()
     with tempfile.TemporaryDirectory() as tmp:
         asyncio.run(check_adopt(Path(tmp)))
     print(f"\n{sum(results)}/{len(results)} passed")

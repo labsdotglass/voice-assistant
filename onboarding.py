@@ -19,13 +19,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import builds
 import failure
 import first_run
 from home import HOME
 
 ROOT = Path(__file__).parent
 SOURCE = ROOT / "audio_helper" / "onboarding.swift"
-PROGRAM = ROOT / "bin" / "onboarding"
+PROGRAM = builds.ONBOARDING  # in ~/.voice-assistant/bin, kept across updates
 PAGE = ROOT / "orb-page" / "dist" / "onboarding.html"
 SEEN = HOME / "onboarded"
 LANGUAGE_FILE = ROOT / "languages.json"
@@ -50,13 +51,11 @@ def with_current(langs: list[dict]) -> list[dict]:
 def build():
     if os.environ.get("VOICE_ONBOARDING_PROGRAM"):
         return
-    if PROGRAM.exists() and PROGRAM.stat().st_mtime >= SOURCE.stat().st_mtime:
-        return
-    PROGRAM.parent.mkdir(exist_ok=True)
-    done = subprocess.run(["xcrun", "swiftc", "-O", str(SOURCE), "-o", str(PROGRAM)], capture_output=True, text=True)
-    if done.returncode:
+    try:
+        builds.build_onboarding(PROGRAM, SOURCE)
+    except RuntimeError as e:
         print("failed " + failure.cant_build("its setup window"), flush=True)  # the mod shows it
-        sys.exit("couldn't build the slideshow; it needs Xcode's command line tools (xcode-select --install): " + done.stderr[-400:])
+        sys.exit(f"couldn't build the slideshow; it needs Xcode's command line tools (xcode-select --install): {e}")
 
 
 def save_language(code: str):
