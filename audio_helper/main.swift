@@ -12,6 +12,7 @@
 //           "T": your queued tasks, JSON {"waiting": n, "tasks": [{"text", "status"}]} (the orb's badge and task panel)
 //           "M": drop the orb at a spot, JSON {"x", "y"}: its centre, as fractions of the screen (tests, demo)
 //           "P": play a soft tick (the tour moved by voice)
+//           "D": voice dropped what was likely you: a short sound, and a ring flashes on the orb
 //           "K": press a Claude app shortcut, "new_session" (Cmd+N) or "next_session" (Ctrl+Tab); answers
 //                on stderr "shortcut: done", "no-access", "no-app" or "not-front"
 //           "C": the menu's settings, JSON {"language", "voice", "pass_on", "languages": [[id, label]], "voices": [[id, label]], "modes": [[id, label]], "progress": bool}
@@ -46,12 +47,17 @@ let stdout = FileHandle.standardOutput
 // A soft tick (the system's Tink, turned down), for "P" messages: the tour moved by voice. Played here, by
 // voice's own audio, because voice processing ducks other apps' sound: a tick from the tour's window was
 // near silent. Echo cancellation takes it out of the mic as it does speech.
-let tick: AVAudioPCMBuffer? = {
-    guard let file = try? AVAudioFile(forReading: URL(fileURLWithPath: "/System/Library/Sounds/Tink.aiff")),
+func systemSound(_ name: String) -> AVAudioPCMBuffer? {
+    guard let file = try? AVAudioFile(forReading: URL(fileURLWithPath: "/System/Library/Sounds/\(name).aiff")),
           let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
           (try? file.read(into: buffer)) != nil else { return nil }
     return buffer
-}()
+}
+let tick = systemSound("Tink")
+// For "D" messages: voice dropped what was likely you. Hollow and low where the tick is bright, so the two
+// never read alike: the tick says something worked, this says it didn't catch you. Same format as Tink,
+// so it plays on the tick's player.
+let droppedSound = systemSound("Bottle")
 
 // The orb's meters (0...1): the mic's level and the assistant's playback level, below.
 var micLevel: Float = 0
@@ -609,6 +615,16 @@ func setTasks(_ json: Data) {
     }
 }
 
+func playOnTicker(_ sound: AVAudioPCMBuffer?) {
+    guard let sound else { return }
+    audioLock.lock()
+    if engine.isRunning {
+        tickPlayer.scheduleBuffer(sound, at: nil, options: .interrupts)
+        if !tickPlayer.isPlaying { tickPlayer.play() }
+    }
+    audioLock.unlock()
+}
+
 func setOrb(_ json: Data) {
     guard let obj = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
           let voice = obj["voice"] as? String else { return }
@@ -738,14 +754,10 @@ Thread.detachNewThread {
         case UInt8(ascii: "M"):
             dropOrb(payload)
         case UInt8(ascii: "P"):
-            if let tick {
-                audioLock.lock()
-                if engine.isRunning {
-                    tickPlayer.scheduleBuffer(tick, at: nil, options: .interrupts)
-                    if !tickPlayer.isPlaying { tickPlayer.play() }
-                }
-                audioLock.unlock()
-            }
+            playOnTicker(tick)
+        case UInt8(ascii: "D"):
+            playOnTicker(droppedSound)
+            DispatchQueue.main.async { orbView?.evaluateJavaScript("window.flashDropped && window.flashDropped()") }
         case UInt8(ascii: "K"):
             pressInClaude(String(decoding: payload, as: UTF8.self))
         case UInt8(ascii: "C"):

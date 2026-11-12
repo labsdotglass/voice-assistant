@@ -35,6 +35,7 @@ from pipecat.frames.frames import (
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 import first_run
+from dropped import DROPS
 from home import HOME  # personal: never in the repo
 VOICEPRINT = HOME / "voiceprint.npy"
 CAPTURE = HOME / "capture"  # present: the next utterances build a new voice print (enroll_voice.py --live)
@@ -368,6 +369,7 @@ class Verdict:
     def __init__(self):
         self.is_you = True
         self.matched = False  # scored as your voice, not just let through (too short to judge, no print)
+        self.score: float | None = None  # the check's similarity, None when it didn't judge
         self.ready = asyncio.Event()
         self.ready.set()
 
@@ -406,6 +408,7 @@ class SpeakerCheck(FrameProcessor):
             self._speech = bytearray(self._recent)
             self._verdict.ready.clear()  # the gate waits for this utterance's check
             self._verdict.matched = False  # not yet, nor if the check runs late
+            self._verdict.score = None
         elif isinstance(frame, VADUserStoppedSpeakingFrame) and self._speaking:
             self._speaking = False
             self.create_task(self._check(bytes(self._speech), self._rate))
@@ -461,6 +464,7 @@ class SpeakerCheck(FrameProcessor):
             t0 = time.perf_counter()
             score = await asyncio.to_thread(self._voice.score, audio)
             self._verdict.is_you = self._verdict.matched = score >= CUTOFF
+            self._verdict.score = score
             logger.info(
                 f"[speaker] {'you' if self._verdict.is_you else 'not you'}: similarity {score:.2f} "
                 f"(cutoff {CUTOFF}), {secs:.1f}s utterance, checked in {(time.perf_counter() - t0) * 1000:.0f} ms"
@@ -659,5 +663,6 @@ class SpeakerGate(FrameProcessor):
                 logger.warning("[speaker] no verdict in time, letting it through")
             if not self._verdict.is_you:
                 logger.info(f"[speaker] not answering another voice: {frame.text!r}")
+                DROPS.report("not you", frame.text, False, self._verdict.score)
                 return
         await self.push_frame(frame, direction)

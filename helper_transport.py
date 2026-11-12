@@ -41,6 +41,7 @@ from pipecat.utils.types import assert_given, require_given
 from talker import emit
 
 import builds
+from dropped import DROPS
 import early_orb
 from builds import HELPER, LAUNCHER
 from early_orb import ORB_PAGE
@@ -305,6 +306,11 @@ class AudioHelper:
         """A soft tick through voice's own audio (the tour moved by voice): not ducked, and echo-cancelled."""
         self._send(b"P")
 
+    def dropped(self):
+        """Voice dropped what was likely you (dropped.py): a ring flashes on the orb, with a short sound
+        unlike the tick, through voice's own audio as the tick is."""
+        self._send(b"D")
+
     def drop_orb(self, x: float, y: float):
         """Carry the orb to a spot and let go, as a drag would: x, y place its centre, as fractions
         of the screen (0,0 bottom left). For trying out the edge snapping."""
@@ -516,6 +522,11 @@ class WhisperKeepingYou(WhisperSTTServiceMLX):
             # The next utterance's start clears the verdict: then this one counts as unmatched, as before.
             you = self._verdict is not None and self._verdict.ready.is_set() and self._verdict.matched
             text = kept_text(chunk.get("segments", []), assert_given(self._settings.no_speech_prob), you)
+            heard = " ".join(seg.get("text", "").strip() for seg in chunk.get("segments", [])).strip()
+            if heard and not text:  # all of it rated as silence
+                ready = self._verdict is None or self._verdict.ready.is_set()
+                DROPS.report("silence", heard, not ready or self._verdict.is_you,
+                             self._verdict.score if self._verdict is not None and ready else None)
             if text:
                 await self._handle_transcription(text, True, language)
                 yield TranscriptionFrame(f" {text} ", self._user_id, time_now_iso8601(), language)
@@ -537,5 +548,7 @@ class HallucinationFilter(FrameProcessor):
             norm = "".join(c for c in frame.text.lower() if c.isalpha() or c == " ").split()
             if " ".join(norm) in HALLUCINATIONS:
                 logger.info(f"(dropped likely hallucination: {frame.text!r})")
+                v = self._verdict
+                DROPS.report("hallucination", frame.text, v is None or v.is_you, v.score if v is not None else None)
                 return
         await self.push_frame(frame, direction)

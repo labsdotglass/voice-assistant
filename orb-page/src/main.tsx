@@ -13,6 +13,7 @@ declare global {
     setPlaybackLevel?: (level: number) => void
     setMicLevel?: (level: number) => void
     setHover?: (isHovered: boolean) => void // the pointer is over the orb (the helper tracks it)
+    flashDropped?: () => void // voice dropped what was likely you: the ring flashes once
     webkit?: { messageHandlers?: Record<string, { postMessage: (m: unknown) => void }> }
   }
 }
@@ -53,6 +54,7 @@ function Orb() {
   const [playback, setPlayback] = useState(0)
   const [mic, setMic] = useState(0)
   const [isHovered, setHovered] = useState(false)
+  const [drops, setDrops] = useState(0) // each one flashes the ring once (a new key restarts it)
 
   useEffect(() => {
     const say = (m: unknown) => window.webkit?.messageHandlers?.orb?.postMessage(m)
@@ -67,6 +69,7 @@ function Orb() {
     // The mic's loudness, 0..1, from the audio helper ~30x/s.
     window.setMicLevel = setMic
     window.setHover = setHovered
+    window.flashDropped = () => setDrops(n => n + 1)
     say({ ready: true, webgpu: 'gpu' in navigator })
     // AiAvatar picks its WebGPU renderer when it can; report which one actually drew.
     setTimeout(() => say({ renderer: document.querySelector('canvas') ? 'webgpu canvas' : 'css fallback' }), 1500)
@@ -77,6 +80,9 @@ function Orb() {
       data-opening={isOpening || undefined}
       data-hover={isHovered || undefined}>
       <div className="orb">
+        {/* A ring around the orb, voice's way to say something about itself: here, a brief flash when
+            it dropped what you said ("I didn't catch that"), with a short sound from the helper. */}
+        {drops > 0 && <div key={drops} className="ring" data-ring="dropped" aria-hidden />}
         <AiAvatar state={AVATAR[voice]} level={levelFor(voice, playback, mic)} label={`Voice: ${voice}`} />
         {/* A drag handle in the middle, shown while the pointer is over the orb (in the loader's place). */}
         <div className="handle" aria-hidden>

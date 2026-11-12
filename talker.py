@@ -42,6 +42,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from home import HOME, RUN  # ~/.voice-assistant: settings, voice prints, switches
 import new_session as app_sessions  # the module; new_session below is the talker's tool
 import failure
+from dropped import DROPS
 import first_run
 import hebrew_terms
 import settings
@@ -1999,6 +2000,11 @@ class VoiceStateReporter(FrameProcessor):
         self._gray = gray_until_greeting  # the orb stays "starting" until the greeting starts playing
         self._held: str | None = None  # meanwhile, the state to show once it's over
         self._on_ready = on_ready  # the orb leaving gray (voice is ready): e.g. its tick
+        DROPS.on_drop = self._dropped  # what you said was dropped: no reply is coming
+
+    def _dropped(self):
+        if self._state == "thinking" and not self._holding():
+            self._set("listening")  # at once, not after THINKING_TIMEOUT
 
     def _holding(self) -> bool:
         return self._gray or not SPEECH_READY.is_set()
