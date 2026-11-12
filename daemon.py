@@ -177,6 +177,8 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
             if waits.moved_on(session) and session != OUTBOX.target:
                 talker.on_session_event({"type": "wait_over", "session": session})
         if session != OUTBOX.target:
+            # Its queued tasks still move on (sent, finished), or they'd be left waiting for when you come back.
+            TASKS.on_event(ev)
             # A permission or a question form. Not a closing question (it has buttons): it comes with the turn's
             # end, and announce_finished tells you about that turn and what it needs from you.
             if (ev.get("type") in ("permission", "question") and not ev.get("buttons") and session and OUTBOX.target
