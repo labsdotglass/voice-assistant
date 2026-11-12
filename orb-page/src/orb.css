@@ -113,6 +113,27 @@
 .stage[data-opening][data-hover] .opening,
 .stage[data-voice='starting'][data-hover] .opening { opacity: 0; }
 
+/* The ring: just outside the orb, voice's way to say something about itself. "dropped" flashes it once,
+   amber: voice heard you and dropped it, so say it again. It fades out on its own. */
+.ring {
+  position: absolute;
+  inset: -7%;
+  border-radius: 50%;
+  border: 3px solid rgb(255 179 64);
+  box-shadow: 0 0 10px rgb(255 179 64 / 0.6);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ring[data-ring='dropped'] { animation: ring-flash 1.1s ease-out 1; }
+
+@keyframes ring-flash {
+  0% { opacity: 0; transform: scale(0.96); }
+  15% { opacity: 1; transform: scale(1); }
+  45% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 @keyframes petal {
   0% { opacity: 1; }
   100% { opacity: 0.2; }
@@ -126,4 +147,10 @@
 @media (prefers-reduced-motion: reduce) {
   .working span { animation: none; opacity: 0.8; }
   .opening span { animation: none; opacity: 0.8; }
+  .ring[data-ring='dropped'] { animation: ring-fade 1.1s linear 1; } /* no growing, only a fade */
+}
+
+@keyframes ring-fade {
+  0%, 45% { opacity: 1; }
+  100% { opacity: 0; }
 }

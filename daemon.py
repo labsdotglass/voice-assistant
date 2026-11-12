@@ -59,6 +59,7 @@ from interim import InterimTranscriber, SaidSoFar, load_speech_models, set_draft
 from hebrew_voice import KokoroAnyLanguage, load_fast_hebrew, load_fast_kokoro
 from speaker import CAPTURE, SKIPPED, VOICEPRINT, EnrollPhrases, should_offer, SpeakerCheck, SpeakerGate, Verdict, VoicePrint, load_encoder
 from helper_transport import HANDOFF, HANDOFF_ENV, BargeInGate, HallucinationFilter, HelperAudioTransport, QuestionEndsTurn, WhisperKeepingYou
+from dropped import DROPS
 from talker import ENDING, ENROLLING, FEED, FIRST_RUN, FIRST_TOUR, GREETING_RELEASED, RESTART, VOICE_STATE, mark_restart, restart_reason, MENU, TOUR_OPEN, tour_is_open, NEW_SESSION, OUTBOX, PROGRESS_OFF, SPEECH_READY, TASKS, Talker, VoiceStateReporter, emit, set_pass_on
 
 
@@ -675,6 +676,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
 
     if orb:
         TASKS.on_change = orb.set_tasks  # the orb's queued-task badge and panel
+        DROPS.on_cue = orb.dropped  # what was likely you, dropped: a ring on the orb and a short sound
         orb.on_setting = on_setting
         orb.set_settings(orb_menu())
     try:
