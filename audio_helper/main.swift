@@ -20,7 +20,8 @@
 // With --orb it also shows a floating, transparent, always-on-top window with the
 // The AiAvatar orb (WebGPU, orb-page/), driven by the "S" messages. --orb-hidden starts it out of sight, as
 // "hidden" keeps it while the onboarding window shows its own orb (the first run, learning your voice again).
-// stderr: logs.
+// stderr: logs. "mic: dead (no audio)", "mic: dead (silence)" and "mic: back" tell the daemon when the mic
+//         stops giving sound while voice is on (the orb shows it too), and when it gives sound again.
 import AppKit
 import AVFoundation
 import Foundation
@@ -117,7 +118,9 @@ func buildAudio() throws {
 
             // Mic meter for the orb: how loud the (processed) mic is, the same way as the playback meter.
             var sum: Float = 0
-            for i in 0 ..< Int(buf.frameLength) { sum += src[i] * src[i] }
+            var peak: Float = 0
+            for i in 0 ..< Int(buf.frameLength) { sum += src[i] * src[i]; peak = max(peak, abs(src[i])) }
+            micHeard(sound: peak > 0)
             let db = 10 * log10(sum / Float(max(buf.frameLength, 1)) + 1e-10)
             let target = min(max((db + 60) / 35, 0), 1)  // about -60 dBFS (quiet room) to -25 dBFS (talking close)
             levelLock.lock()
@@ -152,6 +155,28 @@ func buildAudio() throws {
         try? input.setVoiceProcessingEnabled(false)
         throw error
     }
+}
+
+// A dead mic: the orb looks like it's listening while voice hears nothing. A quiet room can't be the sign
+// (it keeps the level low for minutes), so it's either no buffers at all, or buffers of exact digital zeros,
+// which a working mic never gives (a muted input, an input volume of 0, a device that sends nothing). Zeros
+// count only while voice isn't speaking, in case echo cancellation blanks the mic under its own voice. Watched
+// here, where the audio arrives, so it still shows when the daemon is the part that's stuck. The time a device
+// change takes doesn't count: the engine is stopped on purpose then (switchingDevices).
+let micDeadAfter: TimeInterval = 4
+var lastMicBuffer = Date()  // the last buffer from the mic
+var lastMicSound = Date()  // the last one that wasn't all zeros
+var micDead = false  // main thread only
+func micHeard(sound: Bool) {
+    let now = Date()
+    levelLock.lock()
+    lastMicBuffer = now
+    if sound || playLevel > 0.01 { lastMicSound = now }  // playLevel: voice is speaking
+    levelLock.unlock()
+}
+
+func micReset() {
+    levelLock.lock(); lastMicBuffer = Date(); lastMicSound = Date(); levelLock.unlock()
 }
 
 // Earphones, AirPods or another mic or speakers connected or gone: macOS stops the engine and posts this,
@@ -194,6 +219,7 @@ func rebuildAudio(run: Int, attempt: Int = 1) {
     try? old?.inputNode.setVoiceProcessingEnabled(false)  // let go of the mic before a new engine takes it
     do {
         try buildAudio()
+        micReset()  // the new engine gets its few seconds too
         log("devices changed: new engine, mic \(Int(micFormat.sampleRate))Hz x\(micFormat.channelCount)")
         switchingDevices = false
         if let lastOrbState { setOrb(lastOrbState) }  // back to its colors: voice hears and speaks again
@@ -664,6 +690,21 @@ func grayOrb() {
     let busy = last?["busy"] as? Bool ?? false
     let opening = last?["opening"] as? Bool ?? false
     orbView?.evaluateJavaScript("window.setVoiceState && window.setVoiceState('starting', \(busy), \(opening))")
+}
+
+// Watch for a dead mic (micHeard, above) twice a second.
+Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+    if switchingDevices { micReset(); return }
+    levelLock.lock()
+    let (buffer, sound) = (lastMicBuffer, lastMicSound)
+    levelLock.unlock()
+    let now = Date()
+    let why = now.timeIntervalSince(buffer) >= micDeadAfter ? "no audio"
+        : now.timeIntervalSince(sound) >= micDeadAfter ? "silence" : nil
+    if (why != nil) == micDead { return }
+    micDead = why != nil
+    log(micDead ? "mic: dead (\(why!))" : "mic: back")
+    orbView?.evaluateJavaScript("window.setMicDead && window.setMicDead(\(micDead))")
 }
 
 // Push the playback and mic levels to the orb about 30 times a second, decaying when nothing plays.
