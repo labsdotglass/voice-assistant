@@ -37,7 +37,7 @@ It's not dictation. Claude Code's built-in `/voice` turns your speech into a pro
 
 The first time, a window walks you through the rest: pick your language, wait for the download (a progress bar; take the short tour meanwhile), and read eight short phrases so voice learns your voice. macOS asks to let **Voice Assistant** use the microphone: allow it.
 
-When the orb is in the corner of your screen, start talking. The first time you ask for the next session ("next session"), macOS also asks to let Voice Assistant control the computer (Accessibility): it presses the app's own shortcut for you. It's optional.
+The orb comes up in the corner of your screen with a spinner while voice starts; when it turns colored, start talking. The first time you ask for the next session ("next session"), macOS also asks to let Voice Assistant control the computer (Accessibility): it presses the app's own shortcut for you. It's optional.
 
 **Recommended: auto mode.** Voice can't click a permission prompt, so a session stops at each one until you do. To have sessions run without prompts, add `"defaultMode": "auto"` under `"permissions"` in `~/.claude/settings.json`, or run `uv run setup.py --auto-mode` in the plugin's folder to have it done (it keeps a copy of the file). Voice never turns it on by itself.
 

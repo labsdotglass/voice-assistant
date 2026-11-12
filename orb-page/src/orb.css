@@ -104,9 +104,14 @@
   animation: petal 1.2s linear infinite;
 }
 
-.stage[data-opening] .opening { opacity: 1; }
-.stage[data-opening] .working { opacity: 0; }
-.stage[data-opening][data-hover] .opening { opacity: 0; }
+/* Voice itself starting shows the same flower: from the orb's first frame until voice can listen, so
+   a start never looks like an orb that's stuck. */
+.stage[data-opening] .opening,
+.stage[data-voice='starting'] .opening { opacity: 1; }
+.stage[data-opening] .working,
+.stage[data-voice='starting'] .working { opacity: 0; }
+.stage[data-opening][data-hover] .opening,
+.stage[data-voice='starting'][data-hover] .opening { opacity: 0; }
 
 @keyframes petal {
   0% { opacity: 1; }
