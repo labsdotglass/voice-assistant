@@ -41,6 +41,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 from home import HOME, RUN  # ~/.voice-assistant: settings, voice prints, switches
 import new_session as app_sessions  # the module; new_session below is the talker's tool
+import failure
 import first_run
 import hebrew_terms
 import settings
@@ -1696,8 +1697,18 @@ class Talker(FrameProcessor):
         if isinstance(frame, StartFrame):
             self._started = True
             await self.push_frame(frame, direction)
-            self._client = ClaudeSDKClient(options=make_options())
-            await self._client.connect()
+            try:
+                self._client = ClaudeSDKClient(options=make_options())
+                await self._client.connect()
+            except (Exception, SystemExit) as e:
+                # SystemExit (not signed in) isn't an Exception: Pipecat would drop it without a word, leaving a
+                # voice that's on and never answers. A fatal error ends the daemon, and the mod says why.
+                self._client = None
+                if not failure.read():
+                    failure.record(f"Voice couldn't reach Claude ({type(e).__name__}). Try starting it again.")
+                logger.error(f"[lifecycle] talker couldn't start: {e}")
+                await self.push_error(f"the talker couldn't start: {e}", fatal=True)
+                return
             emit({"type": "status", "text": "listening"})
             logger.info("[lifecycle] talker connected")
             # A restart carries on the conversation instead: at most a few words that fit why.
@@ -1798,6 +1809,9 @@ class Talker(FrameProcessor):
             if self._drain_task:
                 await self._drain_task
                 self._drain_task = None
+            if self._client is None:
+                logger.warning("[lifecycle] no talker conversation: nothing answered")
+                return
             events = FEED.drain()
             if not user_text and not events:
                 return
