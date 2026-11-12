@@ -12,6 +12,6 @@ export type FinishedSession = { id: string; appId: string; title: string; projec
 
 declare module 'claude-code' {
   interface PluginState {
-    'voice-mode': { isOn: VoiceOn; voice: string; isSessionBusy: boolean; transcript: TranscriptLine[]; draft: string; isPanelOpen: boolean; target: VoiceTarget | null; finished: FinishedSession[]; plan: unknown[]; hiddenSetup: string }
+    'voice-mode': { isOn: VoiceOn; voice: string; isSessionBusy: boolean; transcript: TranscriptLine[]; draft: string; isPanelOpen: boolean; target: VoiceTarget | null; finished: FinishedSession[]; plan: unknown[]; hiddenSetup: string; startStep: string }
   }
 }

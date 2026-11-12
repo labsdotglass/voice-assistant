@@ -6,61 +6,30 @@ daemon calls start() first, before those imports. The orb page shows its spinner
 helper_transport's AudioHelper adopts the helper with take(), as it adopts one handed on by a restart in place.
 
 Only an ordinary start does this: not a restart in place (its orb never went away), not a first run (the
-onboarding window shows its own orb) and not when the helper or Voice Assistant.app needs building (the
-daemon builds them, then starts the helper as before). Standard library only.
+onboarding window shows its own orb). When the helper or Voice Assistant.app needs building (the first start
+after an update that changed their source), start() builds them first: a few seconds, still well before the
+imports are done. step() tells the mod how far the start has got. Standard library only.
 """
 
+import json
 import os
-import plistlib
 import select
 import sys
 import threading
 import time
 from pathlib import Path
 
+import builds
 import home
+from builds import HELPER, LAUNCHER  # in ~/.voice-assistant/bin, kept across updates
 
 HERE = Path(__file__).parent
-HELPER = HERE / "bin" / "audio_helper"
-HELPER_SOURCE = HERE / "audio_helper" / "main.swift"
-# The helper runs through Voice Assistant.app, so macOS lists its microphone permission under that name.
-APP = HERE / "bin" / "Voice Assistant.app"
-LAUNCHER = APP / "Contents" / "MacOS" / "voice-assistant"
-LAUNCHER_SOURCE = HERE / "audio_helper" / "launcher.swift"
-APP_ICON = HERE / "audio_helper" / "VoiceAssistant.icns"  # drawn by audio_helper/make_icon.swift
-APP_INFO = {
-    "CFBundleName": "Voice Assistant",
-    "CFBundleDisplayName": "Voice Assistant",
-    # A new id is a new app to macOS: it asks once more for the microphone (and Accessibility). build_app sees
-    # the Info.plist differ and rebuilds the app on the next start.
-    "CFBundleIdentifier": "glass.labs.voice-assistant",
-    "CFBundleExecutable": "voice-assistant",
-    "CFBundleIconFile": "VoiceAssistant",
-    "CFBundlePackageType": "APPL",
-    "CFBundleShortVersionString": "1.0",
-    "CFBundleVersion": "1",
-    "LSUIElement": True,
-    "NSMicrophoneUsageDescription": "Voice Assistant listens so you can talk to Claude Code.",
-}
 ORB_PAGE = HERE / "orb-page" / "dist" / "orb.html"
 OUT_RATE = 24000  # Kokoro's: the rate the daemon's HelperAudioTransport asks for
 VOICEPRINT = home.HOME / "voiceprint.npy"  # speaker.VOICEPRINT: without it, this start is a first run
 
 _early: dict | None = None  # the helper started here, until take()
 _draining = threading.Event()
-
-
-def helper_built(helper: Path = HELPER, source: Path = HELPER_SOURCE) -> bool:
-    """Whether the helper is built from its current source (it isn't in git)."""
-    return helper.exists() and helper.stat().st_mtime >= source.stat().st_mtime
-
-
-def app_built(app: Path = APP, launcher: Path = LAUNCHER, source: Path = LAUNCHER_SOURCE, icon: Path = APP_ICON) -> bool:
-    """Whether Voice Assistant.app is built from its current source, icon and Info.plist."""
-    info = app / "Contents" / "Info.plist"
-    built = launcher.stat().st_mtime if launcher.exists() else 0
-    return (built >= max(source.stat().st_mtime, icon.stat().st_mtime)
-            and info.exists() and plistlib.loads(info.read_bytes()) == APP_INFO)
 
 
 def wanted(argv: list[str], env) -> bool:
@@ -70,8 +39,7 @@ def wanted(argv: list[str], env) -> bool:
             and '"helper"' not in env.get("VOICE_HANDOFF", "")  # a restart in place hands its helper on
             and env.get("VOICE_FIRST_TOUR") != "1"
             and VOICEPRINT.exists()
-            and ORB_PAGE.exists()
-            and helper_built() and app_built())
+            and ORB_PAGE.exists())
 
 
 def _drain(fd: int):
@@ -84,10 +52,26 @@ def _drain(fd: int):
             return
 
 
+def step(name: str):
+    """Tells the mod how far this start has got, for its panel: "loading" (the imports), "building" (the
+    helper and its app), "models" (the speech models, from the daemon). Its stdout, as talker.emit writes."""
+    sys.stdout.write("@@VOICE " + json.dumps({"type": "starting", "step": name}) + "\n")
+    sys.stdout.flush()
+
+
 def start() -> bool:
     """Starts the audio helper, and so the orb, now, when this start wants it: -> whether it did."""
     global _early
     if _early or not wanted(sys.argv, os.environ):
+        return False
+    try:
+        # Built here, if they need it (after an update that changed their source): seconds, and then the orb
+        # comes up before the imports as on any start. If a build fails, the daemon builds them again and says why.
+        if not (builds.helper_built() and builds.app_built()):
+            step("building")
+            builds.build_helper()
+            builds.build_app()
+    except (OSError, RuntimeError):
         return False
     try:
         (in_r, in_w), (out_r, out_w), (err_r, err_w) = os.pipe(), os.pipe(), os.pipe()
@@ -102,6 +86,7 @@ def start() -> bool:
         return False  # the daemon starts it the usual way, and says why if it can't
     for fd in (in_r, out_w, err_w):
         os.close(fd)
+    _draining.clear()  # a helper taken before (and so a set event) mustn't stop this one's drain
     drain = threading.Thread(target=_drain, args=(out_r,), daemon=True, name="early-orb-drain")
     drain.start()
     _early = {"pid": pid, "stdin": in_w, "stdout": out_r, "stderr": err_r, "drain": drain, "at": time.monotonic()}

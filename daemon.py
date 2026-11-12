@@ -19,6 +19,7 @@ if __name__ == "__main__":
     import early_orb
 
     early_orb.start()
+    early_orb.step("loading")  # the imports below: the mod's panel says voice is loading
 
 import argparse
 import asyncio
@@ -316,6 +317,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
         GREETING_RELEASED.clear()
         end_first_run = first_run.hold_until_done(GREETING_RELEASED.set, window_open=tour_is_open)
     else:
+        emit({"type": "starting", "step": "models"})  # the mod's panel: loading the speech models
         threading.Thread(target=load_speech_models, args=(whisper_model, also), daemon=True).start()
     verdict = Verdict()  # each utterance's voice check: the gate, Whisper and the filter all read it
     stt = WhisperKeepingYou(verdict, settings=WhisperSTTServiceMLX.Settings(model=whisper_model, language=heard_in))

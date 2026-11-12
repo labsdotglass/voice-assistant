@@ -11,11 +11,13 @@ import type { FinishedSession, QueuedPrompt, TranscriptLine, TranscriptWho, Voic
 type RunPaths = {
   sock: string
   restart: string
+  failure: string // why the daemon could not start, for the mod to say
   owner: string // the session that had voice last, written by the daemon
   finished: string
   waiting: string
   log: string
   modLog: string
+  venv: string // voice's Python packages: kept here, not in the plugin's folder, so an update reuses them
 }
 let runPaths: Promise<RunPaths> | undefined
 function paths($: Dollar): Promise<RunPaths> {
@@ -26,6 +28,7 @@ function paths($: Dollar): Promise<RunPaths> {
       if (res.exitCode !== 0 || !d) throw new Error(`couldn't make ~/.voice-assistant/run: ${res.stderr.trim()}`)
       return {
         sock: `${d}/run/voice.sock`,
+        venv: `${d}/venv`,
         restart: `${d}/run/restart`,
         failure: `${d}/run/failure`,
         owner: `${d}/run/owner`,
@@ -56,6 +59,18 @@ const plan = atom({ plugin: 'voice-mode', key: 'plan' } as const, [] as unknown[
 // The first run's window while it's hidden: setup's progress in a few words for the footer, '' while it shows.
 // In the session's state too, so a reload keeps the footer's item and starts its poll again.
 const hiddenSetup = atom({ plugin: 'voice-mode', key: 'hiddenSetup' } as const, '')
+// How far a start has got, in a few words, for the footer and the empty panel: '' once voice is up (or off).
+// A start that has to set voice up (its packages, the orb) takes a while, and this says what it's doing.
+const startStep = atom({ plugin: 'voice-mode', key: 'startStep' } as const, '')
+const START_STEP: Record<string, string> = {
+  starting: 'Starting voice…',
+  packages: "Setting up voice's packages…", // uv's own lines on stderr: it's installing them
+  loading: 'Loading voice…', // the daemon's imports (early_orb.step)
+  building: 'Building the orb…', // the audio helper and its app, after an update that changed them
+  models: 'Loading the speech models…',
+}
+// uv's lines while it sets voice's packages up (it prints nothing when they're already there).
+const UV_SETUP = /^(Using CPython|Creating virtual environment|Resolved|Downloading|Downloaded|Prepared|Installed|Uninstalled|Building|Built)\b/
 
 // The transcript side panel: what you said, what the voice said, what went to the session.
 const PANE = 'voice-transcript'
@@ -83,6 +98,7 @@ type Command =
   | { type: 'transcript'; who: TranscriptWho; text: string }
   | { type: 'draft'; text: string }
   | { type: 'status'; text: string }
+  | { type: 'starting'; step: string } // how far a start has got (early_orb.step, the daemon)
   | { type: 'stop' }
   | { type: 'clear' }
   | { type: 'panel'; show: boolean }
@@ -459,6 +475,7 @@ async function voiceOff($: Dollar) {
   vlog($, 'voice marked off in this session')
   await update($, isOn, () => false)
   await update($, voice, () => 'off')
+  await update($, startStep, () => '')
   await update($, target, () => null) // state holds JSON only: undefined is refused
 }
 
@@ -467,8 +484,11 @@ async function handle($: Dollar, cmd: Command) {
     await connect($) // the session that started the daemon registers like any other
   } else if (cmd.type === 'state') {
     await update($, voice, () => cmd.voice) // the orb draws it; the panel's header shows it too
+    if (cmd.voice !== 'starting') await update($, startStep, () => '')
     // Back to listening or on to speaking with no final line (a dropped "thank you"): the draft is stale.
     if (cmd.voice === 'listening' || cmd.voice === 'speaking') await update($, draft, () => '')
+  } else if (cmd.type === 'starting') {
+    if ((await read($, voice)) === 'starting' && START_STEP[cmd.step]) await update($, startStep, () => START_STEP[cmd.step])
   } else if (cmd.type === 'draft') {
     await update($, draft, () => cmd.text)
     scrollToEnd($)
@@ -622,6 +642,7 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
     return
   }
   void update($, voice, () => 'starting')
+  void update($, startStep, () => START_STEP.starting)
   // A first run's window is the one to look at: the panel comes once it's gone (turnOn).
   if (!firstTour && !firstRunOpen) void $.ui.open({ id: PANE, title: 'Voice' })
   // /talk again after Couldn't install: the window goes back to Setting up.
@@ -631,7 +652,9 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
   const child = $.process.spawn({
     argv: [uv, 'run', '--directory', $.plugin.root, 'daemon.py', '--socket', (await paths($)).sock, ...(isRestart ? ['--restart', why] : [])],
     // VOICE_FIRST_TOUR: the first-start tour is open, so voice learns your voice only once it closes.
-    env: { PYTHONUNBUFFERED: '1', ...(firstTour ? { VOICE_FIRST_TOUR: '1' } : {}) },
+    // UV_PROJECT_ENVIRONMENT: voice's packages in ~/.voice-assistant/venv, where every version finds them. In the
+    // plugin's folder, each update (a new folder) set them up again, and its first start took minutes.
+    env: { PYTHONUNBUFFERED: '1', UV_PROJECT_ENVIRONMENT: (await paths($)).venv, ...(firstTour ? { VOICE_FIRST_TOUR: '1' } : {}) },
   })
   startedAt = Date.now()
   const it = child[Symbol.asyncIterator]()
@@ -682,6 +705,9 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
         if (piece.value.stream !== 'stdout') {
           $.ui.log(piece.value.text, { to: 'debug' })
           lastError = piece.value.text.trim().split('\n').filter(Boolean).pop() ?? lastError
+          if (piece.value.text.split('\n').some(l => UV_SETUP.test(l.trim())) && (await read($, startStep)) === START_STEP.starting) {
+            await update($, startStep, () => START_STEP.packages)
+          }
           continue
         }
         pending += piece.value.text
@@ -696,7 +722,10 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
       vlog($, `the daemon process failed: ${String(err)}`)
       $.ui.toast(`voice mode stopped: ${String(err)}`)
     } finally {
-      if (stop === mine) stop = undefined // a newer daemon this session started since keeps its own
+      if (stop === mine) {
+        stop = undefined // a newer daemon this session started since keeps its own
+        await update($, startStep, () => '')
+      }
       vlog($, 'no longer running a daemon from this session')
     }
   })()
@@ -819,7 +848,7 @@ async function turnOn($: Dollar, why: string) {
   if (seen.exitCode !== 0 && !(await connect($))) {
     const uv = await findUv($)
     // Meanwhile, the first start's slow part that needs no audio: installing voice's Python packages.
-    if (uv) void $.process.run([uv, 'sync', '--directory', $.plugin.root], { timeoutMs: 600_000 }).catch(() => undefined)
+    if (uv) void $.process.run(['/usr/bin/env', `UV_PROJECT_ENVIRONMENT=${(await paths($)).venv}`, uv, 'sync', '--directory', $.plugin.root], { timeoutMs: 600_000 }).catch(() => undefined)
     if (uv) {
       // Not awaited: the window stays open as long as you like. "joined": a first run is already underway.
       firstRunOpen = true
@@ -1137,6 +1166,7 @@ export const register: Register = on => {
     )
     const lines = (await read($, transcript)).slice(-200)
     const drafting = await read($, draft)
+    const starting = await read($, startStep)
 
     // Only the conversation; the pane scrolls it natively. Start and stop are the footer's button,
     // the orb's menu and /talk. What went to the session isn't shown: it's in the session itself.
@@ -1144,7 +1174,7 @@ export const register: Register = on => {
     const bottomRoom = Math.round(e.props.scroll.bodyRows * 0.45)
     return (
       <Box flexDirection="column" gap="sm" paddingBottom={bottomRoom}>
-        {lines.length === 0 && !drafting && <Text dimColor>Nothing said yet. Start voice and talk.</Text>}
+        {lines.length === 0 && !drafting && <Text dimColor>{starting || 'Nothing said yet. Start voice and talk.'}</Text>}
         {lines.map((line, i) => {
           const key = `l${line.at}-${i}`
           if (line.who === 'you') return bubble(key, line.text)
@@ -1206,12 +1236,14 @@ export const register: Register = on => {
     const modes = await next(e)
     const isVoiceOn = await read($, isOn)
     const setup = await read($, hiddenSetup)
+    const starting = await read($, startStep)
     const { Box, Button } = $.ui.resolve(e)
 
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
+        {!setup && starting && <Button key="voice-starting" label={starting} variant="secondary" dimColor onPress={() => void $.ui.open({ id: PANE, title: 'Voice' })} />}
         <Button
           key="voice-toggle"
           label={isVoiceOn ? 'Stop voice' : 'Start voice'}

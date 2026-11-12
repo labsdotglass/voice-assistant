@@ -44,14 +44,19 @@ Typical speed on Apple silicon: Whisper about 0.3 s for a short utterance; the t
 
 `orb-page/` is a small Vite app that renders the orb (`AiAvatar`, WebGPU) on a transparent page, and builds the first run's window. The built pages (`orb-page/dist/orb.html`, `onboarding.html`) are committed, so running voice needs no Node. The helper loads each page as a string with an https base, because WebKit won't run module scripts from `file://` and WebGPU needs a secure context. The orb's state arrives on "S" messages from the daemon; session busy shows as three soft dots inside it.
 
-A start brings the orb up first: `daemon.py` calls `early_orb.start()` before its imports (pipecat, torch and MLX take about 4 s warm and 10 s cold), so the orb shows within a second, with its spinner, until voice can listen. `AudioHelper` then adopts that helper. Not on a first run, a restart in place, or when the helper or app needs building.
+A start brings the orb up first: `daemon.py` calls `early_orb.start()` before its imports (pipecat, torch and MLX take about 4 s warm and 10 s cold), so the orb shows within a second, with its spinner, until voice can listen. `AudioHelper` then adopts that helper. Not on a first run or a restart in place. When the helper or app needs building (an update that changed their source), `early_orb` builds them first, a few seconds, then brings the orb up.
+
+While a start is underway the footer (and the empty panel) says how far it has got: `Starting voice…`, `Setting up voice's packages…` (uv's own lines on stderr), `Building the orb…`, `Loading voice…` (the imports) and `Loading the speech models…`. The steps come from `early_orb.step()` and the daemon as `{"type": "starting"}` commands; the label goes once voice leaves `starting`.
+
+An update doesn't set voice up again. Each version installs into a new folder (`~/.claude/plugins/cache/voice-assistant/voice-mode/<version>/`), so voice's Python packages and its built programs are kept outside it, in `~/.voice-assistant/venv` (the plugin sets `UV_PROJECT_ENVIRONMENT`) and `~/.voice-assistant/bin` (`builds.py`). Before, an update's first start set up a new environment and rebuilt the programs: about a minute of first imports with nothing on screen. `builds.py` rebuilds a program only when the content of its source changed (recorded in `bin/built.json`), never for new file dates, and macOS ties the microphone permission to the app's exact build: the same source builds the same app (its CDHash doesn't change), so it isn't asked again.
 
 A language switch restarts voice in place: the daemon re-executes itself and hands on the audio helper, the socket and the registered sessions, so the orb stays where it is with its spinner.
 
 ## Where things live
 
 - `~/.voice-assistant/` (0700): settings, voice print and recordings, greetings, the first run's state, `run/` (the socket, other sessions' notes) and `logs/`.
-- `bin/` in the plugin's folder: the audio helper, `Voice Assistant.app` and the first run's window, built on the first start.
+- `~/.voice-assistant/venv`: voice's Python packages (uv's project environment), shared by every version.
+- `~/.voice-assistant/bin`: the audio helper, `Voice Assistant.app` and the first run's window, built on the first start and again only when their source changes (`builds.py`).
 
 ## Files
 
@@ -60,7 +65,7 @@ A language switch restarts voice in place: the daemon re-executes itself and han
 - `speaker.py`, `enroll_voice.py`: answering only your voice, and learning it.
 - `settings.py`, `languages.json`: the orb menu's settings and the languages.
 - `interim.py`: the draft line. `focus.py`: which session you're in. `new_session.py`: starting and finding sessions. `claude_login.py`: the subscription check. `failure.py`: why voice can't run, left in `run/failure` for the plugin to show instead of starting it again.
-- `early_orb.py`: the orb up before the daemon's imports.
+- `early_orb.py`: the orb up before the daemon's imports. `builds.py`: building the helper, its app and the first run's window, kept across updates.
 - `helper_transport.py`, `audio_helper/main.swift`, `audio_helper/launcher.swift`: the audio helper and the app that runs it, so macOS asks for the microphone under its name.
 - `onboarding.py`, `first_run.py`, `audio_helper/onboarding.swift`, `orb-page/src/tour.tsx`: the first run's window. Its words, in every language, are in `orb-page/src/first-run-text.json`.
 - `hebrew_voice.py`, `hebrew_mlx.py`, `hebrew_terms.py`: Hebrew.
