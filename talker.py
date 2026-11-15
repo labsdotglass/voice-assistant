@@ -43,6 +43,7 @@ from home import HOME, RUN  # ~/.voice-assistant: settings, voice prints, switch
 import new_session as app_sessions  # the module; new_session below is the talker's tool
 import failure
 from dropped import DROPS
+from mute import MUTE
 import first_run
 import hebrew_terms
 import settings
@@ -62,7 +63,7 @@ For every user message, decide one of these:
 3b. Call cancel_queued: when the user takes back something you queued that hasn't started yet (it's listed as waiting). Something already running is interrupt_session instead.
 3c. Call end_voice, with your goodbye as its ack (mentioning any prompts still waiting, which still go to the session): only when the user explicitly ends the conversation, with a farewell or by saying outright that they're done or need nothing more. Gratitude on its own is not an ending: answer it, and always end that reply by asking, in your own words, whether there's anything else you can do for them. If you can't tell whether they're finished, ask; a pause or silence never ends it.
 If it's unclear whether they want something sent, ask in one short sentence.
-3d. Call voice_menu: when the user asks out loud for something the orb's right-click menu does for voice mode itself (show or hide the transcript, clear the conversation, change the language, change your voice, change how their words are passed on, learn their voice again, show the tour, progress updates on or off), or to go to the next session in the Claude app. These are voice mode's own controls, not work for the session: never send them to it. A setting changed this way lasts by itself, so it's never also an instruction to pass on (rule 4). While the tour is open (the events say so), "next", "back", a step's number, "done" or "close" step through it with tour_step. For a step to a slide, leave the ack empty and say nothing at all: a soft sound tells them the slide changed, and they read it on screen. Don't read slides aloud.
+3d. Call voice_menu: when the user asks out loud for something the orb's right-click menu does for voice mode itself (show or hide the transcript, clear the conversation, change the language, change your voice, change how their words are passed on, learn their voice again, show the tour, progress updates on or off, mute voice for a phone call), or to go to the next session in the Claude app. These are voice mode's own controls, not work for the session: never send them to it. A setting changed this way lasts by itself, so it's never also an instruction to pass on (rule 4). While the tour is open (the events say so), "next", "back", a step's number, "done" or "close" step through it with tour_step. For a step to a slide, leave the ack empty and say nothing at all: a soft sound tells them the slide changed, and they read it on screen. Don't read slides aloud.
 3e. Call new_session: when the user asks for a new session (with or without what it should do, in a folder or not). It's opened for them, not asked of the current session.
 3f. Call go_to_session: when the user asks to go to (open, switch to, move to) an existing session by its name, in a project or not. When they address a project rather than a session ("go to acme", "take me to the payments api project"), pass it as the project with no name: that goes to the project's last active session, not to a session that merely shares the word. When a short request could as well mean going to a session you know of (its name matches what they said, from a list you gave or the events) as work for the session you're in, don't guess: ask in one short question whether to go there, and send nothing until they answer.
 3g. Call list_sessions: only when the user asks what sessions there are (or which they have, or what's open). Tell them in a few words, and when they pick one, go to it with go_to_session and its id. When they name a session to go to, call go_to_session straight away instead: it searches all their sessions, while the list holds only the recent few.
@@ -831,6 +832,14 @@ def restart_told():
     RESTART_MARKER.unlink(missing_ok=True)
 
 
+def unmuted_note(minutes: int) -> str:
+    """After a mute (for a call), the cue for telling what came in meanwhile."""
+    spell = "a moment" if minutes < 1 else f"{minutes} minute{'s' if minutes != 1 else ''}"
+    return (f"[a note from voice mode, not from the user: they muted you for {spell}, for a call, and just unmuted you. "
+            "What follows came in meanwhile: tell them briefly, as a catch-up, the most useful part first. Don't greet them "
+            "or ask about the call.]")
+
+
 def restart_note() -> str:
     """On a restart, the cue for what voice says in place of a greeting: after a language switch, that it's
     back, in the new language; after any other restart (a reload, a recovered crash), that it's back and
@@ -1390,7 +1399,7 @@ async def dismiss_question(args):
 # The orb's right-click menu, by voice: the daemon sets "do" to its menu handler, (action, value) -> what happened.
 MENU = {"do": None}
 MENU_ACTIONS = ["show_transcript", "hide_transcript", "clear_conversation", "language", "voice", "pass_on", "learn_voice", "show_tour", "progress",
-                "next_session", "tour_step"]
+                "mute", "next_session", "tour_step"]
 
 # The tour, while it's open (bin/onboarding writes TOUR_OPEN with its pid, and takes a step from TOUR_COMMAND).
 TOUR_OPEN = HOME / "tour-open"
@@ -1408,7 +1417,8 @@ def tour_is_open() -> bool:
     "voice_menu",
     "Do what the orb's right-click menu does, when the user asks for it out loud: show or hide the transcript, "
     "clear the conversation, change the language, change your voice, change how their words are passed on, learn their voice again, "
-    "show the tour, or turn progress updates on or off; and in the Claude app, go to the next session (next_session), as "
+    "show the tour, turn progress updates on or off, or mute voice (mute: for a call, it then neither hears nor speaks "
+    "until they unmute it from the orb, which can't be asked out loud); and in the Claude app, go to the next session (next_session), as "
     "its shortcut does; and while the tour is open, step through it as its buttons do (tour_step). A new session is "
     "new_session; turning voice mode off is end_voice.",
     {
@@ -1700,6 +1710,9 @@ class Talker(FrameProcessor):
             return  # an event before the pipeline runs (the inbox opens first): it waits in the feed for the start
         if not GREETING_RELEASED.is_set():
             return  # voice isn't talking until the first run is over: the news waits in the feed for the greeting
+        if MUTE.on:  # muted for a call: the news waits in the feed, and is told once they unmute (on_mute)
+            FEED.news_due = FEED.news_due or bool(worth)
+            return
         # News during a reply (an action failing while its ack plays) would otherwise wait for your next words.
         # A plan update wouldn't: it's out of date by the time the reply ends.
         mid_reply = self._replying() and ev.get("type") != "plan"
@@ -1719,7 +1732,7 @@ class Talker(FrameProcessor):
         quiet_since = None
         while True:
             await asyncio.sleep(0.1)
-            if self._replying() or VOICE_STATE["now"] != "listening":
+            if self._replying() or VOICE_STATE["now"] != "listening" or MUTE.on:
                 quiet_since = None
                 continue
             quiet_since = quiet_since or time.monotonic()
@@ -1746,6 +1759,16 @@ class Talker(FrameProcessor):
 
     def _replying(self) -> bool:
         return self._reply_task is not None and not self._reply_task.done()
+
+    def on_mute(self, muted: bool):
+        """Muted: what voice is saying stops at once (the speaker is flushed by the daemon). Unmuted: the news
+        held meanwhile is told, briefly; with none, nothing is said (a soft tick marks it)."""
+        if muted:
+            self.create_task(self._stop_reply())
+            return
+        if self._started and GREETING_RELEASED.is_set() and FEED.pending and not self._replying():
+            FEED.pending.insert(0, unmuted_note(MUTE.last_minutes))
+            self._reply_task = self.create_task(self._reply(""))
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
@@ -1785,6 +1808,9 @@ class Talker(FrameProcessor):
             if text and not GREETING_RELEASED.is_set():
                 # Said to the first run's window, not to voice: never answered or sent, only its buttons pressed.
                 self.create_task(self._first_run_heard(text))
+            elif text and MUTE.on:
+                # Muted: the mic is silence, but words from just before the mute can still finish here. Never answered.
+                logger.info(f"[mute] heard while muted, not answered: {text[:60]!r}")
             elif text:
                 await self._stop_reply()
                 self._reply_task = self.create_task(self._reply(text))

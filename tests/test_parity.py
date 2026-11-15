@@ -30,6 +30,8 @@ SPOKEN = {
     "more tour": "show_tour",
     "more progress": "progress",
     "stop": "tool:end_voice",
+    "mute": "mute",
+    "unmute": "unheard: muted, voice can't hear you ask; the menu or a click on the orb unmutes",
 }
 
 
@@ -87,6 +89,8 @@ def gaps(items: dict[str, str], menu_actions: list[str], handled: set[str], tool
         if route is None:
             missing.append(f"menu item {title!r} (command {command!r}) has no spoken route: add it to by_voice "
                            "(daemon.py) and MENU_ACTIONS (talker.py), then to SPOKEN in test_parity.py")
+        elif route.startswith("unheard:"):
+            pass  # an item voice can't hear you ask for, by design (the reason follows)
         elif route.startswith("tool:"):
             if route[5:] not in tools:
                 missing.append(f"menu item {title!r} relies on the talker tool {route[5:]}, which talker.py doesn't define")
@@ -119,8 +123,8 @@ def main():
        + (f": not found: {', '.join(lost)}" if lost else ""))
 
     # The check itself catches a menu item with no route, a route missing from either side, and an unknown command.
-    broken = {**items, "Mute": "mute"}
-    ok(any("'Mute'" in m for m in gaps(broken, menu_actions, handled, tools)), "a new menu item with no spoken route fails")
+    broken = {**items, "Snooze": "snooze"}
+    ok(any("'Snooze'" in m for m in gaps(broken, menu_actions, handled, tools)), "a new menu item with no spoken route fails")
     ok(any("by_voice" in m for m in gaps(items, menu_actions, handled - {"show_tour"}, tools)), "an action by_voice drops fails")
     ok(any("MENU_ACTIONS" in m for m in gaps(items, [a for a in menu_actions if a != "progress"], handled, tools)),
        "an action missing from MENU_ACTIONS fails")

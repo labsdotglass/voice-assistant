@@ -7,7 +7,7 @@
 // stdin:  framed messages, [type: 1 byte][length: UInt32 LE][payload]
 //           "A": audio to play, mono int16 at --out-rate
 //           "F": flush, stop playing everything queued (barge-in)
-//           "S": orb state, JSON {"voice": "...", "busy": bool, "opening": bool, "hidden": bool}
+//           "S": orb state, JSON {"voice": "...", "busy": bool, "opening": bool, "hidden": bool, "muted": bool}
 //           "V": whether the Voice panel is showing, "1" or "0" (for the orb's menu)
 //           "T": your queued tasks, JSON {"waiting": n, "tasks": [{"text", "status"}]} (the orb's badge and task panel)
 //           "M": drop the orb at a spot, JSON {"x", "y"}: its centre, as fractions of the screen (tests, demo)
@@ -309,6 +309,13 @@ final class OrbWebView: WKWebView {
 
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         menu.removeAllItems()
+        // Mute for a call: voice neither hears nor speaks until you unmute (here, or by clicking the orb).
+        let mute = orbMuted
+            ? NSMenuItem(title: "Unmute", action: #selector(unmuteVoice), keyEquivalent: "")
+            : NSMenuItem(title: "Mute", action: #selector(muteVoice), keyEquivalent: "")
+        mute.target = self
+        menu.addItem(mute)
+        menu.addItem(.separator())
         let toggle = panelVisible
             ? NSMenuItem(title: "Hide transcript", action: #selector(hidePanel), keyEquivalent: "")
             : NSMenuItem(title: "Show transcript", action: #selector(showPanel), keyEquivalent: "")
@@ -369,6 +376,8 @@ final class OrbWebView: WKWebView {
     @objc func showTour() { log("command: more tour") }
     @objc func toggleProgress() { log("command: more progress") }
     @objc func stopVoice() { log("command: stop") }
+    @objc func muteVoice() { log("command: mute") }
+    @objc func unmuteVoice() { log("command: unmute") }
     @objc func showPanel() { log("command: show-panel") }
     @objc func clearTranscript() { log("command: clear") }
     @objc func hidePanel() { log("command: hide-panel") }
@@ -435,15 +444,18 @@ if let page = arg("--orb") {
 // Dragging the orb. WebKit takes the mouse, so the window's own background drag never starts: a left drag
 // on the orb moves it here instead (the page needs no left clicks). Let go near an edge and it snaps there.
 var isDraggingOrb = false  // pressed on the handle, or dragging the orb: the hand stays closed until you let go
+var orbMuted = false  // voice is muted (the "S" message's muted): the menu offers Unmute, and a click on the orb unmutes
 
 func dragOrb(_ window: NSWindow) {
     var grab: NSPoint?  // where the mouse took hold, relative to the window's origin
+    var moved = false  // this press dragged the orb: letting go is a drop, not a click
     NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { event in
         guard event.window === window else { return event }
         let mouse = NSEvent.mouseLocation
         switch event.type {
         case .leftMouseDown:
             grab = NSPoint(x: mouse.x - window.frame.minX, y: mouse.y - window.frame.minY)
+            moved = false
             // A press on the handle closes the hand at once, before any drag.
             if let view = orbView as? OrbWebView, view.handleRect().contains(view.convert(event.locationInWindow, from: nil)) {
                 isDraggingOrb = true
@@ -451,9 +463,11 @@ func dragOrb(_ window: NSWindow) {
             }
         case .leftMouseDragged:
             if let g = grab { window.setFrameOrigin(NSPoint(x: mouse.x - g.x, y: mouse.y - g.y)) }
+            moved = true
             if !isDraggingOrb { isDraggingOrb = true; NSCursor.closedHand.set() }
         default:
             grab = nil
+            if !moved && orbMuted { log("command: unmute") }  // a click on the muted orb brings voice back
             if isDraggingOrb {
                 isDraggingOrb = false
                 let view = orbView as? OrbWebView, inside = view.map { $0.handleRect().contains($0.convert(event.locationInWindow, from: nil)) } ?? false
@@ -657,8 +671,13 @@ func setOrb(_ json: Data) {
     let busy = (obj["busy"] as? Bool) == true
     let opening = (obj["opening"] as? Bool) == true
     let hidden = (obj["hidden"] as? Bool) == true
+    let muted = (obj["muted"] as? Bool) == true
     DispatchQueue.main.async {
         lastOrbState = json
+        if muted != orbMuted {
+            orbMuted = muted
+            orbView?.evaluateJavaScript("window.setMuted && window.setMuted(\(muted))")
+        }
         if hidden != orbHidden { hideOrb(hidden) }
         if switchingDevices { return }  // stays gray until the new engine is up (rebuildAudio)
         // As a JSON string, not pasted between quotes: whatever the daemon sends stays a string.

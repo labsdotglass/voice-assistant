@@ -1,3 +1,4 @@
+import { MicOff, MicSignal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AiAvatar, type AiAvatarState } from './ui/components/ai-avatar'
@@ -14,7 +15,8 @@ declare global {
     setMicLevel?: (level: number) => void
     setHover?: (isHovered: boolean) => void // the pointer is over the orb (the helper tracks it)
     flashDropped?: () => void // voice dropped what was likely you: the ring flashes once
-    setMicDead?: (isDead: boolean) => void // the mic gives no sound while voice is on: a mic-off icon stays until it does
+    setMicDead?: (isDead: boolean) => void // the mic gives no sound while voice is on: a mic-signal icon stays until it does
+    setMuted?: (isMuted: boolean) => void // voice is muted (for a call): faded, with a mic-off icon, until you unmute
     webkit?: { messageHandlers?: Record<string, { postMessage: (m: unknown) => void }> }
   }
 }
@@ -57,6 +59,7 @@ function Orb() {
   const [isHovered, setHovered] = useState(false)
   const [drops, setDrops] = useState(0) // each one flashes the ring once (a new key restarts it)
   const [isMicDead, setMicDead] = useState(false)
+  const [isMuted, setMuted] = useState(false)
 
   useEffect(() => {
     const say = (m: unknown) => window.webkit?.messageHandlers?.orb?.postMessage(m)
@@ -73,6 +76,7 @@ function Orb() {
     window.setHover = setHovered
     window.flashDropped = () => setDrops(n => n + 1)
     window.setMicDead = setMicDead
+    window.setMuted = setMuted
     say({ ready: true, webgpu: 'gpu' in navigator })
     // AiAvatar picks its WebGPU renderer when it can; report which one actually drew.
     setTimeout(() => say({ renderer: document.querySelector('canvas') ? 'webgpu canvas' : 'css fallback' }), 1500)
@@ -82,12 +86,14 @@ function Orb() {
     <div className="stage" data-voice={voice} data-busy={isBusy || undefined}
       data-opening={isOpening || undefined}
       data-hover={isHovered || undefined}
-      data-mic-dead={isMicDead || undefined}>
+      data-mic-dead={isMicDead || undefined}
+      data-muted={isMuted || undefined}>
       <div className="orb">
         {/* A ring around the orb, voice's way to say something about itself: here, a brief flash when
             it dropped what you said ("I didn't catch that"), with a short sound from the helper. */}
         {drops > 0 && <div key={drops} className="ring" data-ring="dropped" aria-hidden />}
-        <AiAvatar className="avatar" state={AVATAR[voice]} level={levelFor(voice, playback, mic)} label={`Voice: ${voice}`} />
+        <AiAvatar className="avatar" state={isMuted ? 'listening' : AVATAR[voice]} level={isMuted ? 0 : levelFor(voice, playback, mic)}
+          label={isMuted ? 'Voice: muted' : `Voice: ${voice}`} />
         {/* A drag handle in the middle, shown while the pointer is over the orb (in the loader's place). */}
         <div className="handle" aria-hidden>
           <span />
@@ -98,13 +104,11 @@ function Orb() {
           <span />
           <span />
         </div>
-        {/* The mic gives no sound: a crossed-out mic in the middle, in the dots' place, until it works again. */}
-        <svg className="mic-off" viewBox="0 0 24 24" role="img" aria-label="The microphone gives no sound"
-          aria-hidden={!isMicDead}>
-          <rect x="9" y="2.5" width="6" height="11" rx="3" />
-          <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
-          <path d="M4 3.5l16 17" />
-        </svg>
+        {/* The mic gives no sound: Lucide's mic-signal, in the dots' place, until it works again. Something is wrong,
+            unlike muting, which you chose. */}
+        <MicSignal className="mic-dead" role="img" aria-label="The microphone gives no sound" aria-hidden={!isMicDead} />
+        {/* Muted: Lucide's mic-off, in the same place, until you unmute (the menu, or a click on the orb). */}
+        <MicOff className="muted" role="img" aria-label="Voice is muted" aria-hidden={!isMuted} />
         <div className="opening" aria-hidden>
           {PETALS.map(i => (
             <span key={i} style={{ transform: `rotate(${i * (360 / PETALS.length)}deg)`, animationDelay: `${((i - PETALS.length) * 1.2) / PETALS.length}s` }} />

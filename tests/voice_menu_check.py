@@ -42,6 +42,8 @@ CASES = [  # (what you say, the action, the value it should carry or None)
     ("Go to the next session.", "next_session", None),
     ("Switch to Hebrew.", "language", "hebrew"),
     ("Let's talk in Spanish from now on.", "language", "spanish"),
+    ("Mute yourself, I'm taking a call.", "mute", None),
+    ("I've got a phone call, go quiet until I'm back.", "mute", None),
 ]
 
 
