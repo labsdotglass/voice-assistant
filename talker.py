@@ -318,6 +318,10 @@ def heard_from(messages) -> str:
 # instead of staying silent until the turn ends. Switch it off: touch ~/.voice-assistant/progress-off
 PROGRESS_OFF = HOME / "progress-off"
 PROGRESS_GAP = 5.0  # plan steps rarely change faster; a plan and its first step often arrive together
+MIC_WARN_GAP = 60.0  # a mic that keeps dropping out and coming back is said once a minute at most
+MIC_DEAD_NOTE = ("[Voice's microphone has stopped giving any sound: voice can't hear the user now, whatever they say. "
+                 "Tell them in one short sentence that you can't hear them, and to check that their mic is connected and "
+                 "not muted. The orb shows it until the mic works again.]")
 
 
 class PlanTracker:
@@ -459,6 +463,8 @@ class SessionFeed:
         # News is waiting for a quiet moment (Talker._news_when_quiet). Any reply carries it, so that clears this.
         self.news_due = False
         self.request = ""  # what the running turn was asked, so its end can report on that request
+        self.mic_dead = False  # the mic gives no sound (the audio helper says so; the orb shows it)
+        self.mic_warned = float("-inf")  # when voice last said so
 
     def _finished(self, ev: dict):
         self.elsewhere = [{k: ev.get(k, "") for k in ("id", "title", "project")}] + [
@@ -604,6 +610,21 @@ class SessionFeed:
                     self.pending.append(f"[while voice was restarting, the session finished what the user asked. The request, "
                                         f"already sent: {request[:300]}. Its answer: {clip_answer(ev.get('answer', ''))}]\n{REPORT_BACK}")
                     return True
+            return False
+        elif kind == "mic_dead":
+            # The mic stopped giving any sound while voice is on: it can't hear the user, and nothing else tells
+            # them, since a quiet mic looks like a quiet room. Said once, as they may not be looking at the orb.
+            now, was = time.monotonic(), self.mic_dead
+            self.mic_dead = True
+            if was or now - self.mic_warned < MIC_WARN_GAP:
+                return False
+            self.mic_warned = now
+            self.pending.append(MIC_DEAD_NOTE)
+            return True
+        elif kind == "mic_back":
+            self.mic_dead = False
+            if MIC_DEAD_NOTE in self.pending:  # not said yet (voice was mid-reply, or before the greeting): no longer true
+                self.pending.remove(MIC_DEAD_NOTE)
             return False
         elif kind == "new_session_done":
             # The session you asked voice to start: open in the app now, or why not.

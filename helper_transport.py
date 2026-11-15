@@ -140,6 +140,7 @@ class AudioHelper:
         self._replacing: asyncio.Future | None = None
         self._pressed: asyncio.Future | None = None  # press()'s answer from the helper
         self.on_setting = None  # (key, value) when you pick a setting from the orb's menu; ("more", item) for More's
+        self.on_mic = None  # (dead, why) when the mic stops giving sound while voice is on ("no audio", "silence"), and comes back
         self._has_orb = os.environ.get("VOICE_ORB", "1") == "1" and ORB_PAGE.exists()
 
     async def ensure_started(self):
@@ -232,6 +233,12 @@ class AudioHelper:
                 logger.info(f"[lifecycle] {text.removeprefix('audio_helper: ')}")
                 if self._pressed and not self._pressed.done():
                     self._pressed.set_result(text.rsplit(" ", 1)[-1])
+            elif text.startswith("audio_helper: mic: "):  # the mic went dead ("dead (no audio)", "dead (silence)") or came back
+                state = text.removeprefix("audio_helper: mic: ")
+                dead = state.startswith("dead")
+                (logger.warning if dead else logger.info)(f"[mic] {state}")
+                if self.on_mic:
+                    self.on_mic(dead, state.partition("(")[2].rstrip(")"))
             elif text.startswith("audio_helper: orb dropped"):  # where you let go of the orb, and whether it snapped
                 logger.info(text)
             else:
