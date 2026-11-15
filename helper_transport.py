@@ -513,6 +513,7 @@ class BargeInTrace:
         if strict is None or normal is None or (speaking and was):
             return  # voice isn't speaking, or the VAD already heard this utterance: nothing to time
         for i, (conf, vol) in enumerate(scores):
+            conf, vol = float(np.asarray(conf).item()), float(np.asarray(vol).item())  # Silero's are numpy (#35)
             t = now - (len(scores) - 1 - i) * frame_secs
             if conf >= normal.confidence and vol >= normal.min_volume:
                 if self._start is None:
@@ -567,8 +568,9 @@ class TracingVAD(SileroVADAnalyzer):
         self._conf = 0.0
 
     def voice_confidence(self, buffer) -> float:
-        self._conf = super().voice_confidence(buffer)
-        return self._conf
+        conf = super().voice_confidence(buffer)  # a numpy array, which Silero's caller expects back
+        self._conf = float(np.asarray(conf).item())
+        return conf
 
     def _get_smoothed_volume(self, audio: bytes) -> float:
         volume = super()._get_smoothed_volume(audio)
@@ -609,8 +611,11 @@ class BargeInGate(FrameProcessor):
             BARGE.strict = self._strict
         elif isinstance(frame, BotStoppedSpeakingFrame):
             BARGE.strict = None
-            BARGE.bot_stopped(time.monotonic())
             self._vad.set_params(self._normal)
+            try:
+                BARGE.bot_stopped(time.monotonic())
+            except Exception as e:  # logging only: a failed trace mustn't fail the frame (#35)
+                logger.warning(f"[barge] trace failed: {e}")
         await self.push_frame(frame, direction)
 
 
