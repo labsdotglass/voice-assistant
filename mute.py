@@ -3,7 +3,7 @@
 For phone calls. While muted, the mic's audio is replaced by silence before anything listens to it (the VAD,
 Whisper, the voice check), so nothing said on the call is transcribed or answered; nothing is spoken, and what
 was being said stops at once. News from sessions waits in the feed and is told once you unmute. The orb
-shows it (faded, with a crossed-out mic in its middle); you unmute from its menu or by clicking it, since
+shows it (gray, with a crossed-out mic in its middle); you unmute from its menu or by clicking it, since
 voice can't hear you ask. It isn't kept across a restart: voice comes back unmuted.
 """
 

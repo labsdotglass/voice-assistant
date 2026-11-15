@@ -140,9 +140,9 @@
 .stage[data-mic-dead] .opening,
 .stage[data-mic-dead][data-hover] .mic-dead { opacity: 0; }
 
-/* Muted (for a call), on purpose: the orb keeps its colors, faded and still, with Lucide's mic-off icon in the
-   same place, so it reads as paused, not broken (that's mic dead's gray). It wins over mic dead while it lasts. */
-.stage[data-muted] .avatar { filter: saturate(0.85) brightness(0.68); opacity: 0.8; }  /* still blue, darker so the white icon reads */
+/* Muted (for a call), on purpose: the orb goes gray and still, with Lucide's mic-off icon in the same place. Mic dead
+   is gray too; its icon (mic-signal) tells the two apart. Muted wins over mic dead while it lasts. */
+.stage[data-muted] .avatar { filter: grayscale(1) brightness(0.62); }  /* gray, as mic dead: it can't hear you; the icon says why */
 .stage[data-muted] .muted { opacity: 1; }
 .stage[data-muted] .mic-dead,
 .stage[data-muted] .working,
