@@ -251,6 +251,22 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
     return runner
 
 
+def running_what() -> str:
+    """Which voice this is, for the start line in voice.log: the release's version, or a staging install's
+    (staging.sh), with the branch it was made from, so a test is never mistaken for the release."""
+    try:
+        version = json.loads((Path(__file__).parent / ".claude-plugin" / "plugin.json").read_text())["version"]
+    except (OSError, ValueError, KeyError):
+        return "version unknown"
+    if "-staging." not in version:
+        return f"version {version}"
+    try:
+        branch = (home.HOME / "staging" / "branch").read_text().strip()
+    except OSError:
+        branch = "?"
+    return f"STAGING {version}, branch {branch}"
+
+
 def orb_menu() -> dict:
     """What the orb's menu shows: the settings with their choices, and More's Progress updates switch."""
     return {**settings.menu(settings.load()), "progress": not PROGRESS_OFF.exists()}
@@ -712,7 +728,7 @@ if __name__ == "__main__":
     for folder in (home.RUN, new_session.FINISHED_DIR, new_session.WAITING_DIR, home.LOGS):
         home.private(folder)
     logger.add(home.LOG, level="INFO", rotation="5 MB", retention=2)
-    logger.info(f"[lifecycle] voice daemon starting (pid {os.getpid()}, parent {os.getppid()})")
+    logger.info(f"[lifecycle] voice daemon starting (pid {os.getpid()}, parent {os.getppid()}): {running_what()}")
     failure.clear()
     try:
         asyncio.run(main(args.socket, not args.no_aec, args.headphones or os.environ.get("VOICE_HEADPHONES") == "1", args.restart))
