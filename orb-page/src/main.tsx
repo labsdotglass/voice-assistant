@@ -92,7 +92,7 @@ function Orb() {
         {/* A ring around the orb, voice's way to say something about itself: here, a brief flash when
             it dropped what you said ("I didn't catch that"), with a short sound from the helper. */}
         {drops > 0 && <div key={drops} className="ring" data-ring="dropped" aria-hidden />}
-        <AiAvatar className="avatar" state={isMuted ? 'listening' : AVATAR[voice]} level={isMuted ? 0 : levelFor(voice, playback, mic)}
+        <AiAvatar className="avatar" state={isMuted ? 'idle' : AVATAR[voice]} level={isMuted ? 0 : levelFor(voice, playback, mic)}
           label={isMuted ? 'Voice: muted' : `Voice: ${voice}`} />
         {/* A drag handle in the middle, shown while the pointer is over the orb (in the loader's place). */}
         <div className="handle" aria-hidden>
