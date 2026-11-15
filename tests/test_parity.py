@@ -31,7 +31,7 @@ SPOKEN = {
     "more progress": "progress",
     "stop": "tool:end_voice",
     "mute": "mute",
-    "unmute": "unheard: muted, voice can't hear you ask; the menu or a click on the orb unmutes",
+    "unmute": "direct: said while muted, matched by mute.is_unmute in the talker (no menu action: voice only listens for it)",
 }
 
 
@@ -89,8 +89,8 @@ def gaps(items: dict[str, str], menu_actions: list[str], handled: set[str], tool
         if route is None:
             missing.append(f"menu item {title!r} (command {command!r}) has no spoken route: add it to by_voice "
                            "(daemon.py) and MENU_ACTIONS (talker.py), then to SPOKEN in test_parity.py")
-        elif route.startswith("unheard:"):
-            pass  # an item voice can't hear you ask for, by design (the reason follows)
+        elif route.startswith("direct:"):
+            pass  # asked out loud, but handled outside voice_menu (the reason follows)
         elif route.startswith("tool:"):
             if route[5:] not in tools:
                 missing.append(f"menu item {title!r} relies on the talker tool {route[5:]}, which talker.py doesn't define")

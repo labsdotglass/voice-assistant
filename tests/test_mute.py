@@ -1,7 +1,7 @@
-"""Mute (no models): while muted, the mic reaches the pipeline as silence and nothing is played; the orb's
-Mute / Unmute lines reach MUTE; news from sessions waits instead of being told, and is told after unmuting,
-led by a note that says voice was muted; with no news, unmuting says nothing; and words heard just before
-the mute are never answered."""
+"""Mute (no models): the orb's Mute / Unmute lines reach MUTE; while muted, voice still hears the mic (so you can
+say unmute) but plays nothing and gives no drop cue; "unmute" and each language's own words unmute, talk on the
+call doesn't; news from sessions waits instead of being told, and is told after unmuting, led by a note that
+says voice was muted; with no news, unmuting says nothing."""
 
 import _root  # noqa: F401  (the repo root on the import path)
 import asyncio
@@ -13,7 +13,9 @@ from pipecat.frames.frames import OutputAudioRawFrame
 
 import talker
 from helper_transport import AudioHelper, HelperInput, HelperOutput
-from mute import MUTE
+import settings
+from dropped import DROPS
+from mute import MUTE, UNMUTE_WORDS, is_unmute
 from talker import FEED, GREETING_RELEASED, Talker
 
 results = []
@@ -86,7 +88,7 @@ async def main():
         await helper._log_stderr(FakeProc(["audio_helper: command: unmute"]))
     ok(not MUTE.on, "Unmute (or a click on the muted orb) unmutes")
 
-    # The mic: silence while muted, as it is otherwise.
+    # The mic: heard as it is, muted or not (muted, voice listens for unmute).
     for muted in (True, False):
         MUTE.set(muted)
         pushed = []
@@ -101,7 +103,7 @@ async def main():
         except asyncio.CancelledError:
             pass
         heard = pushed and any(pushed[0])
-        ok(heard != muted, f"{'muted: the mic reaches the pipeline as silence' if muted else 'unmuted: the mic reaches it as it is'}")
+        ok(heard, f"{'muted' if muted else 'unmuted'}: the mic reaches the pipeline as it is")
 
     # The speaker: nothing played while muted.
     for muted in (True, False):
@@ -136,6 +138,22 @@ async def main():
     MUTE.set(False)
     await asyncio.sleep(0)
     ok(not t.replies, "unmuted with no news: nothing is said")
+
+    # What unmutes, said while muted: a short utterance with an unmute word; talk on the call doesn't.
+    for text, lang in [("Unmute.", "en"), ("Okay, unmute please.", "en"), ("Un-mute", "en"), ("unmute", "he"),
+                       ("בטל השתקה", "he"), ("Quitar silencio.", "es"), ("Rétablir le son.", "fr"),
+                       ("Togli il muto.", "it"), ("Tirar do mudo.", "pt"), ("अनम्यूट", "hi")]:
+        ok(is_unmute(text, lang), f"{text!r} ({lang}) unmutes")
+    for text, lang in [("Sure, I can do Tuesday at three.", "en"), ("Can you unmute yourself? I can't hear you at all.", "en"),
+                       ("Mute.", "en"), ("", "en")]:
+        ok(not is_unmute(text, lang), f"{text!r} ({lang}) doesn't unmute")
+    ok(set(UNMUTE_WORDS) == {c for c, *_ in settings.LANGUAGES}, "every language has its own unmute words")
+
+    # A drop while muted (your side of the call, taken for noise): no ring, no sound.
+    MUTE.set(True)
+    DROPS._last_cue = float("-inf")
+    ok(not DROPS.report("silence", "yes, that works for me", True), "muted: a drop gives no cue")
+    MUTE.set(False)
 
     # The note describes, quoting no phrase to copy.
     note = talker.unmuted_note(3)

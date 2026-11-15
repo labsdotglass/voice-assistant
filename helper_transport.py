@@ -383,8 +383,6 @@ class HelperInput(BaseInputTransport):
     async def _read(self):
         while True:
             chunk = await self._helper.read_mic()
-            if MUTE.on:  # nothing said on the call reaches the VAD or Whisper; silence lets a turn in progress end
-                chunk = bytes(len(chunk))
             await self.push_audio_frame(InputAudioRawFrame(audio=chunk, sample_rate=MIC_RATE, num_channels=1))
 
     async def cleanup(self):

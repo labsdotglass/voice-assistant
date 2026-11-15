@@ -619,8 +619,8 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
             if MUTE.on:
                 return False, "Voice is already muted."
             asyncio.create_task(mute_when_quiet())  # once your ack has played
-            return True, ("Voice mutes as soon as your ack has played: it then neither hears nor speaks until they unmute it, "
-                          "from the orb's menu or by clicking the orb (it can't hear them ask).")
+            return True, ("Voice mutes as soon as your ack has played: it then ignores everything they say and speaks not at all, "
+                          "until they say unmute, click the orb or use its menu.")
         if action == "next_session":
             return press_shortcut(action)
         if action == "tour_step":

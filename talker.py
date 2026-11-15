@@ -43,7 +43,7 @@ from home import HOME, RUN  # ~/.voice-assistant: settings, voice prints, switch
 import new_session as app_sessions  # the module; new_session below is the talker's tool
 import failure
 from dropped import DROPS
-from mute import MUTE
+from mute import MUTE, is_unmute
 import first_run
 import hebrew_terms
 import settings
@@ -1417,8 +1417,8 @@ def tour_is_open() -> bool:
     "voice_menu",
     "Do what the orb's right-click menu does, when the user asks for it out loud: show or hide the transcript, "
     "clear the conversation, change the language, change your voice, change how their words are passed on, learn their voice again, "
-    "show the tour, turn progress updates on or off, or mute voice (mute: for a call, it then neither hears nor speaks "
-    "until they unmute it from the orb, which can't be asked out loud); and in the Claude app, go to the next session (next_session), as "
+    "show the tour, turn progress updates on or off, or mute voice (mute: for a call, it then ignores all they say and "
+    "speaks not at all until they say unmute or click the orb); and in the Claude app, go to the next session (next_session), as "
     "its shortcut does; and while the tour is open, step through it as its buttons do (tour_step). A new session is "
     "new_session; turning voice mode off is end_voice.",
     {
@@ -1809,8 +1809,11 @@ class Talker(FrameProcessor):
                 # Said to the first run's window, not to voice: never answered or sent, only its buttons pressed.
                 self.create_task(self._first_run_heard(text))
             elif text and MUTE.on:
-                # Muted: the mic is silence, but words from just before the mute can still finish here. Never answered.
-                logger.info(f"[mute] heard while muted, not answered: {text[:60]!r}")
+                # Muted for a call: voice still listens, but only for unmute. Anything else is your side of the call.
+                if is_unmute(text, LANGUAGE["code"]):
+                    MUTE.set(False, f"asked out loud: {text[:40]!r}")
+                else:
+                    logger.info(f"[mute] heard while muted, not answered ({len(text.split())} words)")
             elif text:
                 await self._stop_reply()
                 self._reply_task = self.create_task(self._reply(text))

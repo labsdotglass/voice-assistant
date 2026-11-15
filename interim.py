@@ -26,6 +26,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.frames.frames import TranscriptionFrame
 
 from helper_transport import collapse_runs
+from mute import MUTE
 from talker import SAID, SPEECH_READY, emit
 
 DRAFT_MODEL = "base.en"  # faster-whisper, on the CPU
@@ -124,6 +125,8 @@ class InterimTranscriber(FrameProcessor):
             await asyncio.sleep(self._interval)
             if not self._speaking or len(self._speech) < self.MIN_SECS * self._rate * 2:
                 continue
+            if MUTE.on:  # muted for a call: your side of it never shows in the panel
+                continue
             audio = np.frombuffer(bytes(self._speech), dtype=np.int16).astype(np.float32) / 32768.0
             t0 = time.monotonic()
             text = await asyncio.to_thread(_draft, audio)
@@ -138,7 +141,7 @@ class SaidSoFar(FrameProcessor):
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
-        if isinstance(frame, TranscriptionFrame) and frame.text.strip():
+        if isinstance(frame, TranscriptionFrame) and frame.text.strip() and not MUTE.on:
             SAID.append(frame.text.strip())
             emit({"type": "draft", "text": " ".join(SAID)})
         await self.push_frame(frame, direction)
