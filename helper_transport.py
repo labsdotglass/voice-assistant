@@ -318,6 +318,10 @@ class AudioHelper:
         """A soft tick through voice's own audio (the tour moved by voice): not ducked, and echo-cancelled."""
         self._send(b"P")
 
+    def mute_chime(self, muted: bool):
+        """Muted or unmuted: two soft notes, falling or rising, through voice's own audio as the tick is."""
+        self._send(b"Q", b"1" if muted else b"0")
+
     def dropped(self):
         """Voice dropped what was likely you (dropped.py): a ring flashes on the orb, with a short sound
         unlike the tick, through voice's own audio as the tick is."""

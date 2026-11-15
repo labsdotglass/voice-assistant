@@ -13,6 +13,7 @@
 }
 
 .stage[data-voice='hearing'] .orb { transform: scale(1.06); }
+.stage[data-muted] .orb { transform: none; }  /* muted, someone talking (you on the call) doesn't make it grow */
 .stage[data-voice='starting'] .orb,
 .stage[data-voice='off'] .orb { opacity: 0.6; }
 

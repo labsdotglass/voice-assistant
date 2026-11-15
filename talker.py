@@ -63,7 +63,7 @@ For every user message, decide one of these:
 3b. Call cancel_queued: when the user takes back something you queued that hasn't started yet (it's listed as waiting). Something already running is interrupt_session instead.
 3c. Call end_voice, with your goodbye as its ack (mentioning any prompts still waiting, which still go to the session): only when the user explicitly ends the conversation, with a farewell or by saying outright that they're done or need nothing more. Gratitude on its own is not an ending: answer it, and always end that reply by asking, in your own words, whether there's anything else you can do for them. If you can't tell whether they're finished, ask; a pause or silence never ends it.
 If it's unclear whether they want something sent, ask in one short sentence.
-3d. Call voice_menu: when the user asks out loud for something the orb's right-click menu does for voice mode itself (show or hide the transcript, clear the conversation, change the language, change your voice, change how their words are passed on, learn their voice again, show the tour, progress updates on or off, mute voice for a phone call), or to go to the next session in the Claude app. These are voice mode's own controls, not work for the session: never send them to it. A setting changed this way lasts by itself, so it's never also an instruction to pass on (rule 4). While the tour is open (the events say so), "next", "back", a step's number, "done" or "close" step through it with tour_step. For a step to a slide, leave the ack empty and say nothing at all: a soft sound tells them the slide changed, and they read it on screen. Don't read slides aloud.
+3d. Call voice_menu: when the user asks out loud for something the orb's right-click menu does for voice mode itself (show or hide the transcript, clear the conversation, change the language, change your voice, change how their words are passed on, learn their voice again, show the tour, progress updates on or off, mute voice for a phone call), or to go to the next session in the Claude app. These are voice mode's own controls, not work for the session: never send them to it. A setting changed this way lasts by itself, so it's never also an instruction to pass on (rule 4). While the tour is open (the events say so), "next", "back", a step's number, "done" or "close" step through it with tour_step. For a step to a slide, leave the ack empty and say nothing at all: a soft sound tells them the slide changed, and they read it on screen. Don't read slides aloud. To mute, likewise leave the ack empty and say nothing at all, before or after: a chime tells them it's muted.
 3e. Call new_session: when the user asks for a new session (with or without what it should do, in a folder or not). It's opened for them, not asked of the current session.
 3f. Call go_to_session: when the user asks to go to (open, switch to, move to) an existing session by its name, in a project or not. When they address a project rather than a session ("go to acme", "take me to the payments api project"), pass it as the project with no name: that goes to the project's last active session, not to a session that merely shares the word. When a short request could as well mean going to a session you know of (its name matches what they said, from a list you gave or the events) as work for the session you're in, don't guess: ask in one short question whether to go there, and send nothing until they answer.
 3g. Call list_sessions: only when the user asks what sessions there are (or which they have, or what's open). Tell them in a few words, and when they pick one, go to it with go_to_session and its id. When they name a session to go to, call go_to_session straight away instead: it searches all their sessions, while the list holds only the recent few.
@@ -290,7 +290,7 @@ TASKS = TaskBoard()
 # streams) says it all and later text is dropped; a tool sets this when what happened differs.
 TOOL_OUTCOME = {"needs_words": False}
 ACK = re.compile(r'"ack"\s*:\s*"((?:[^"\\]|\\.)*)"')
-TOUR_STEP = re.compile(r'"action"\s*:\s*"tour_step"')  # voice_menu's tour steps: their ack is never spoken
+TOUR_STEP = re.compile(r'"action"\s*:\s*"(tour_step|mute)"')  # voice_menu's tour steps and mute: their ack is never spoken (a sound marks them)
 SILENT = ("read_full_answer",)  # tools whose ack is never spoken: what the model says after them is the reply
 ACTION = re.compile(r'"action"\s*:\s*"[^"]+"')  # a voice_menu call's action, written in full
 
@@ -1422,7 +1422,7 @@ def tour_is_open() -> bool:
     "its shortcut does; and while the tour is open, step through it as its buttons do (tour_step). A new session is "
     "new_session; turning voice mode off is end_voice.",
     {
-        "ack": Annotated[str, "What you say out loud right now: a few fresh words (about eight at most, one sentence), spoken the moment you write them, before this runs; empty for tour_step"],
+        "ack": Annotated[str, "What you say out loud right now: a few fresh words (about eight at most, one sentence), spoken the moment you write them, before this runs; empty for tour_step and mute"],
         "action": Annotated[str, "One of: " + ", ".join(MENU_ACTIONS)],
         "confirmed": Annotated[bool, "clear_conversation only: false to check with them first (your ack is the question; "
                                      "nothing runs), true once their last words said yes"],
@@ -1447,6 +1447,11 @@ async def voice_menu(args):
         logger.info(f"-> MENU by voice: tour_step {value!r}: {said[:40]}")
         TOOL_OUTCOME["needs_words"] = False
         return {"content": [{"type": "text", "text": "The tour moved; a soft sound marked it. Say nothing at all."}]}
+    if action == "mute" and did:
+        # Muted: a falling chime marks it, and nothing is said.
+        logger.info(f"-> MENU by voice: mute: {said}")
+        TOOL_OUTCOME["needs_words"] = False
+        return {"content": [{"type": "text", "text": said + " Say nothing at all."}]}
     logger.info(f"-> MENU by voice: {action} {value!r}: {said}")
     TOOL_OUTCOME["needs_words"] = not did
     return {"content": [{"type": "text", "text": (said + " Your ack was spoken; add nothing.") if did else
@@ -1966,7 +1971,7 @@ class Talker(FrameProcessor):
                         acked, found = True, None
                     if found and menu_call:
                         # A menu call's ack waits for its action (right after it): a tour step says nothing,
-                        # the tour ticks instead.
+                        # the tour ticks instead, and a mute says nothing, its chime does.
                         if not ACTION.search(tool_json):
                             found = None
                         elif TOUR_STEP.search(tool_json):

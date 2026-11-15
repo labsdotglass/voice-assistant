@@ -619,7 +619,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
             if MUTE.on:
                 return False, "Voice is already muted."
             asyncio.create_task(mute_when_quiet())  # once your ack has played
-            return True, ("Voice mutes as soon as your ack has played: it then ignores everything they say and speaks not at all, "
+            return True, ("Voice mutes now, with a falling chime: it then ignores everything they say and speaks not at all, "
                           "until they say unmute, click the orb or use its menu.")
         if action == "next_session":
             return press_shortcut(action)
@@ -628,7 +628,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
         return False, "The menu has no such action."
 
     async def mute_when_quiet():
-        # Muting by voice: the ack ("muting") plays first, or muting would cut it off.
+        # Muting by voice: once the talker's turn is over (it says nothing; the chime marks it).
         await until_quiet(lambda: talker._replying() or VOICE_STATE["now"] == "speaking")
         MUTE.set(True, "asked out loud")
 
@@ -639,7 +639,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
             if muted:
                 orb.flush()
             orb.set_orb(muted=muted)
-            orb.tick()
+            orb.mute_chime(muted)  # falling as it mutes, rising as it unmutes
         talker.on_mute(muted)
 
     MUTE.on_change = on_mute

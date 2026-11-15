@@ -13,6 +13,7 @@
 //           "M": drop the orb at a spot, JSON {"x", "y"}: its centre, as fractions of the screen (tests, demo)
 //           "P": play a soft tick (the tour moved by voice)
 //           "D": voice dropped what was likely you: a short sound, and a ring flashes on the orb
+//           "Q": muted ("1") or unmuted ("0"): a falling or rising chime
 //           "K": press a Claude app shortcut, "new_session" (Cmd+N) or "next_session" (Ctrl+Tab); answers
 //                on stderr "shortcut: done", "no-access", "no-app" or "not-front"
 //           "C": the menu's settings, JSON {"language", "voice", "pass_on", "languages": [[id, label]], "voices": [[id, label]], "modes": [[id, label]], "progress": bool}
@@ -59,6 +60,32 @@ let tick = systemSound("Tink")
 // never read alike: the tick says something worked, this says it didn't catch you. Same format as Tink,
 // so it plays on the tick's player.
 let droppedSound = systemSound("Bottle")
+
+// For "Q" messages: muted ("1") or unmuted ("0"). Two soft notes a fourth apart, falling as it mutes and rising
+// as it unmutes, the way call apps mark a mic going off and on. Made here, in the tick's format, so they play on
+// its player at its volume.
+func chime(_ notes: [Double]) -> AVAudioPCMBuffer? {
+    guard let format = tick?.format else { return nil }
+    let rate = format.sampleRate, note = 0.12, step = 0.13
+    let frames = AVAudioFrameCount(rate * (step * Double(notes.count - 1) + note + 0.05))
+    guard let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames), let data = buf.floatChannelData else { return nil }
+    buf.frameLength = frames
+    for ch in 0 ..< Int(format.channelCount) {
+        let out = data[ch]
+        for i in 0 ..< Int(frames) { out[i] = 0 }
+        for (k, f) in notes.enumerated() {
+            let start = Int(Double(k) * step * rate)
+            for i in 0 ..< Int(note * rate) where start + i < Int(frames) {
+                let t = Double(i) / rate
+                let envelope = min(1, t / 0.004) * exp(-t * 22)  // a quick, soft attack and a bell-like fade
+                out[start + i] += Float(0.55 * envelope * (sin(2 * .pi * f * t) + 0.18 * sin(4 * .pi * f * t)))
+            }
+        }
+    }
+    return buf
+}
+let muteSound = chime([880, 659.25])  // A5, then E5: down
+let unmuteSound = chime([659.25, 880])  // E5, then A5: up
 
 // The orb's meters (0...1): the mic's level and the assistant's playback level, below.
 var micLevel: Float = 0
@@ -815,6 +842,8 @@ Thread.detachNewThread {
             dropOrb(payload)
         case UInt8(ascii: "P"):
             playOnTicker(tick)
+        case UInt8(ascii: "Q"):
+            playOnTicker(payload.first == UInt8(ascii: "1") ? muteSound : unmuteSound)
         case UInt8(ascii: "D"):
             playOnTicker(droppedSound)
             DispatchQueue.main.async { orbView?.evaluateJavaScript("window.flashDropped && window.flashDropped()") }
