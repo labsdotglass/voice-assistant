@@ -3,7 +3,8 @@
 Others install voice-mode from the plugin marketplace, and `claude plugin update` only brings them a
 change when the version in .claude-plugin/plugin.json goes up (CLAUDE.md, "Releasing to other people").
 So a push whose commits change files outside tests, docs and dev tooling, without raising that version,
-is stopped. Git hands pre-push one line per ref on stdin: <local ref> <local sha> <remote ref> <remote sha>.
+is stopped. Compared with the released version (origin/main's), not the branch's last push: an unreleased
+branch bumps once. Git hands pre-push one line per ref on stdin: <local ref> <local sha> <remote ref> <remote sha>.
 Skip once with `git push --no-verify`.
 """
 
@@ -55,7 +56,10 @@ def main():
         if not base:
             continue
         files = (git("diff", "--name-only", base, local) or "").split()
-        why = problem(files, git("show", f"{base}:{PLUGIN}"), git("show", f"{local}:{PLUGIN}"))
+        # The version to beat is the released one, main's: a branch bumped once for its release needn't bump again
+        # on each later push (or after a rebase), as long as it's still above main. Without main, this push's base.
+        released = git("show", f"origin/main:{PLUGIN}") or git("show", f"{base}:{PLUGIN}")
+        why = problem(files, released, git("show", f"{local}:{PLUGIN}"))
         if why:
             print(f"pre-push: {remote_ref}: {why}", file=sys.stderr)
             failed = True

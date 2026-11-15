@@ -28,7 +28,7 @@ class Mute:
         self.on = muted
         if muted:
             self.since = time.monotonic()
-            logger.info(f"[mute] muted{f' ({why})' if why else ''}: voice neither hears nor speaks")
+            logger.info(f"[mute] muted{f' ({why})' if why else ''}: voice listens only for unmute and says nothing")
         else:
             self.last_minutes = int((time.monotonic() - self.since) // 60)
             logger.info(f"[mute] unmuted after {time.monotonic() - self.since:.0f}s{f' ({why})' if why else ''}")
