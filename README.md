@@ -43,8 +43,9 @@ The orb comes up in the corner of your screen with a spinner while voice starts;
 
 ## Using it
 
-- **Talk normally.** Ask a question, ask for work, think out loud. Voice decides whether to answer itself or send your request to the session. A soft tick tells you a request reached the session. If voice heard you but dropped what you said (it wasn't sure it was your voice, or it took it for noise), an amber ring flashes around the orb with a low, hollow sound: say it again. If the mic stops giving any sound (unplugged, muted, or an input that sends nothing), the orb turns gray with a crossed-out mic in its middle until it works again, and voice tells you once that it can't hear you.
+- **Talk normally.** Ask a question, ask for work, think out loud. Voice decides whether to answer itself or send your request to the session. A soft tick tells you a request reached the session. If voice heard you but dropped what you said (it wasn't sure it was your voice, or it took it for noise), an amber ring flashes around the orb with a low, hollow sound: say it again. If the mic stops giving any sound (unplugged, muted, or an input that sends nothing), the orb turns gray with a mic and signal waves in its middle until it works again, and voice tells you once that it can't hear you.
 - **Questions from the session** are read out. Answer out loud or on screen, whichever is easier.
+- **Mute for a call:** say "mute, I'm taking a call", or right-click the orb → **Mute**. A falling chime marks it (a rising one when you unmute). Voice stops speaking at once and ignores everything you say on the call, the orb turns gray with a crossed-out mic, and the conversation stays. Say "unmute", or click the orb (or **Unmute** in its menu), to bring it back: it tells you briefly what came in meanwhile.
 - **Stop or redirect:** "stop that", "actually, do the tests first". Voice checks with you before it interrupts.
 - **How it talks:** tell it ("keep it shorter", "don't read file names out"). It remembers across restarts, in `~/.voice-assistant/instructions.txt`; "forget what I told you about how to talk" resets it.
 - **Other sessions:** "what sessions do I have?", "go to the pricing session", "start a new session in my-app and have it run the tests". Voice tells you when a session you're not looking at finishes or needs you.
@@ -53,10 +54,11 @@ The orb comes up in the corner of your screen with a spinner while voice starts;
 
 ### The orb's menu
 
-Right-click the orb. Everything here also works by voice ("switch to Michael's voice", "show the transcript", "turn off progress updates").
+Right-click the orb. Everything here also works by voice ("switch to Michael's voice", "show the transcript", "turn off progress updates"), and **Unmute** is just saying "unmute".
 
 | Item | What it does |
 |---|---|
+| **Mute / Unmute** | For a call: voice ignores what you say and speaks not at all until you say "unmute" (or click the orb) |
 | **Show / Hide transcript** | The Voice panel beside your session: what you said and what voice said |
 | **Clear conversation** | Start the voice conversation fresh |
 | **Language** | The language you speak and voice answers in |

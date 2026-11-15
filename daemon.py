@@ -59,6 +59,7 @@ from hebrew_voice import KokoroAnyLanguage, load_fast_hebrew, load_fast_kokoro
 from speaker import CAPTURE, SKIPPED, VOICEPRINT, EnrollPhrases, should_offer, SpeakerCheck, SpeakerGate, Verdict, VoicePrint, load_encoder
 from helper_transport import HANDOFF, HANDOFF_ENV, BargeInGate, HallucinationFilter, HelperAudioTransport, QuestionEndsTurn, TracingVAD, WhisperKeepingYou
 from dropped import DROPS
+from mute import MUTE
 from talker import ENDING, ENROLLING, FEED, FIRST_RUN, FIRST_TOUR, GREETING_RELEASED, RESTART, VOICE_STATE, mark_restart, restart_reason, MENU, TOUR_OPEN, tour_is_open, NEW_SESSION, OUTBOX, PROGRESS_OFF, SPEECH_READY, TASKS, Talker, VoiceStateReporter, emit, set_pass_on
 
 
@@ -614,11 +615,34 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
                 return False, "Progress updates are either on or off."
             on_setting("more", f"progress_{value.strip().lower()}")
             return True, f"Progress updates are {value.strip().lower()}."
+        if action == "mute":
+            if MUTE.on:
+                return False, "Voice is already muted."
+            asyncio.create_task(mute_when_quiet())  # once your ack has played
+            return True, ("Voice mutes now, with a falling chime: it then ignores everything they say and speaks not at all, "
+                          "until they say unmute, click the orb or use its menu.")
         if action == "next_session":
             return press_shortcut(action)
         if action == "tour_step":
             return step_tour(value)
         return False, "The menu has no such action."
+
+    async def mute_when_quiet():
+        # Muting by voice: once the talker's turn is over (it says nothing; the chime marks it).
+        await until_quiet(lambda: talker._replying() or VOICE_STATE["now"] == "speaking")
+        MUTE.set(True, "asked out loud")
+
+    def on_mute(muted: bool):
+        # Muted from the menu, by voice or by a click on the orb: the speaker stops at once, the orb shows it, and
+        # the talker stops its reply (or, unmuted, tells what came in meanwhile).
+        if orb:
+            if muted:
+                orb.flush()
+            orb.set_orb(muted=muted)
+            orb.mute_chime(muted)  # falling as it mutes, rising as it unmutes
+        talker.on_mute(muted)
+
+    MUTE.on_change = on_mute
 
     async def step_tour(step: str) -> tuple[bool, str]:
         # Next, back, a slide, done: handed to the open tour window (bin/onboarding watches tour-command).

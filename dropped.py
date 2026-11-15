@@ -16,6 +16,8 @@ At most one cue per COOLDOWN seconds: a burst of near misses is one "I didn't ca
 
 import time
 
+from mute import MUTE
+
 from loguru import logger
 
 NEAR = 0.25  # voice check scores from here to the cutoff: likely you, dropped anyway
@@ -40,7 +42,7 @@ class Drops:
             self.on_drop()
         likely_you = (is_you and words_of(text) not in FILLERS) or (score is not None and score >= NEAR)
         now = time.monotonic()
-        cue = likely_you and now - self._last_cue >= COOLDOWN
+        cue = likely_you and now - self._last_cue >= COOLDOWN and not MUTE.on  # muted: you're on a call, not talking to voice
         logger.info(f"[dropped] {reason}: {text.strip()!r}" + (f" (score {score:.2f})" if score is not None else "")
                     + (": cue" if cue else ", in the cooldown: no cue" if likely_you else ": no cue, likely not you"))
         if cue:

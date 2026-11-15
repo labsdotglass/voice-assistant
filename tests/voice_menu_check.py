@@ -42,6 +42,8 @@ CASES = [  # (what you say, the action, the value it should carry or None)
     ("Go to the next session.", "next_session", None),
     ("Switch to Hebrew.", "language", "hebrew"),
     ("Let's talk in Spanish from now on.", "language", "spanish"),
+    ("Mute yourself, I'm taking a call.", "mute", None),
+    ("I've got a phone call, go quiet until I'm back.", "mute", None),
 ]
 
 
@@ -70,7 +72,9 @@ async def menu_actions(cases):
         said, sent = await say(text)
         got = asked[0] if asked else None
         right = got is not None and got[0] == action and (value is None or value in got[1])
-        ok(right and not sent and len(asked) == 1, f"{text!r} -> {action}{' ' + value if value else ''} (got {asked}, sent {sent})", said)
+        silent = action != "mute" or not said.strip()  # muting says nothing: its chime does
+        ok(right and not sent and len(asked) == 1 and silent,
+           f"{text!r} -> {action}{' ' + value if value else ''}{' and says nothing' if action == 'mute' else ''} (got {asked}, sent {sent})", said)
 
 
 async def stop_voice():

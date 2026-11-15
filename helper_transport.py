@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 import failure
+from mute import MUTE
 import numpy as np
 from loguru import logger
 from pipecat.frames.frames import (
@@ -131,7 +132,7 @@ class AudioHelper:
         self.out_rate = out_rate
         self.proc: asyncio.subprocess.Process | None = None
         self._lock = asyncio.Lock()
-        self._orb = {"voice": "starting", "busy": False, "opening": False, "hidden": False}
+        self._orb = {"voice": "starting", "busy": False, "opening": False, "hidden": False, "muted": False}
         self._panel_visible = True
         self._settings: dict | None = None  # the orb menu's settings, once set_settings is called
         self._tasks: dict | None = None  # the last task snapshot, resent to a restarted helper
@@ -226,6 +227,9 @@ class AudioHelper:
                 logger.info(f"[lifecycle] orb menu: {key} {value}")
                 if self.on_setting:
                     self.on_setting(key.replace("-", "_"), value)
+            elif text in ("audio_helper: command: mute", "audio_helper: command: unmute"):  # the orb's menu, or a click on the muted orb
+                logger.info(f"[lifecycle] orb menu: {text.rsplit(' ', 1)[-1]}")
+                MUTE.set(text.endswith(" mute"), "from the orb")
             elif text in ("audio_helper: command: show-panel", "audio_helper: command: hide-panel"):
                 logger.info(f"[lifecycle] orb menu: {text.rsplit(' ', 1)[-1]}")
                 emit({"type": "panel", "show": text.endswith("show-panel")})
@@ -314,6 +318,10 @@ class AudioHelper:
         """A soft tick through voice's own audio (the tour moved by voice): not ducked, and echo-cancelled."""
         self._send(b"P")
 
+    def mute_chime(self, muted: bool):
+        """Muted or unmuted: two soft notes, falling or rising, through voice's own audio as the tick is."""
+        self._send(b"Q", b"1" if muted else b"0")
+
     def dropped(self):
         """Voice dropped what was likely you (dropped.py): a ring flashes on the orb, with a short sound
         unlike the tick, through voice's own audio as the tick is."""
@@ -332,7 +340,7 @@ class AudioHelper:
     def set_orb(self, **state):
         """Update the floating orb: voice= listening/hearing/thinking/speaking..., busy= session working,
         opening= a session voice started or went to is opening (a spinner in the middle), hidden= out of sight
-        while the onboarding window shows its own orb (first_run.orb_hidden)."""
+        while the onboarding window shows its own orb (first_run.orb_hidden), muted= voice is muted (mute.py)."""
         if {k: v for k, v in self._orb.items() if k in state} != state:
             self._orb.update(state)
             self._send_orb()
@@ -407,6 +415,8 @@ class HelperOutput(BaseOutputTransport):
         await super().process_frame(frame, direction)
 
     async def write_audio_frame(self, frame: OutputAudioRawFrame) -> bool:
+        if MUTE.on:  # muted: nothing is spoken, whatever is still on its way
+            return True
         await self._helper.play(frame.audio)
         # Pace writes to real time so an interruption only has a little audio to drop.
         now = time.monotonic()
