@@ -4,6 +4,7 @@ the VAD heard you, missed you, or heard you only once voice finished, and how lo
 import _root  # noqa: F401  (the repo root on the import path)
 import sys
 
+import numpy as np
 from pipecat.audio.vad.vad_analyzer import VADParams
 
 from helper_transport import BargeInTrace
@@ -98,6 +99,19 @@ b = trace(strict=False)
 feed(b, [SOFT] * 30, 10.0)
 feed(b, [QUIET] * 30, 11.0)
 ok(kinds(b) == [], "nothing is traced while voice isn't speaking")
+
+# Numpy scores (#35): Silero's confidence is a numpy array, not a float. The trace still logs, with plain floats.
+b = trace()
+arr = lambda c, v: (np.array([c], dtype=np.float32), np.float32(v))
+try:
+    feed(b, [arr(*LOUD)] * 10, 10.0, speaking=True)
+    feed(b, [arr(*SOFT)] * 5, 11.0)
+    b.bot_stopped(11.2)
+    failed = None
+except Exception as e:
+    failed = e
+ok(failed is None and kinds(b) == ["heard", "unflushed", "late"], f"numpy confidence and volume are traced, not failed: {failed or kinds(b)}")
+ok(b.events and all(type(info[k]) is float for kind, info in b.events if kind != "unflushed" for k in ("conf", "vol")), f"as plain floats: {b.events}")
 
 print(f"\n{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)
