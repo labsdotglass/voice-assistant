@@ -69,6 +69,14 @@ const START_STEP: Record<string, string> = {
   building: 'Building the orb…', // the audio helper and its app, after an update that changed them
   models: 'Loading the speech models…',
 }
+// The same steps for the prompt footer, where the long ones were cut: a word or two each (card #49).
+const FOOTER_STEP: Record<string, string> = {
+  [START_STEP.starting]: 'Starting…',
+  [START_STEP.packages]: 'Installing…',
+  [START_STEP.loading]: 'Loading…',
+  [START_STEP.building]: 'Building…',
+  [START_STEP.models]: 'Loading models…',
+}
 // uv's lines while it sets voice's packages up (it prints nothing when they're already there).
 const UV_SETUP = /^(Using CPython|Creating virtual environment|Resolved|Downloading|Downloaded|Prepared|Installed|Uninstalled|Building|Built)\b/
 
@@ -1254,12 +1262,12 @@ export const register: Register = on => {
     // While voice starts: how far it's got, as plain text to the left of Stop voice (card #49). It was a
     // button whose label changed at every step. Once voice is up the step is '' and only Stop voice is left.
     const isStarting = !setup && !!starting
-
+    // The desktop footer showed this row's children right to left (the status came out right of Stop voice),
+    // so Stop voice goes first: at the edge, it stays put while the status beside it changes.
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
-        {isStarting && <Text key="voice-starting" size="footnote" dimColor>{starting}</Text>}
         <Button
           key="voice-toggle"
           label={isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'}
@@ -1270,6 +1278,12 @@ export const register: Register = on => {
             await turnOn($, "the footer's Start voice")
           }}
         />
+        {isStarting && (
+          // As wide as the longest step, so a step that's shorter than the last one doesn't move anything.
+          <Box key="voice-starting" minWidth={16}>
+            <Text size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>
+          </Box>
+        )}
       </Box>
     )
   })
