@@ -1269,6 +1269,7 @@ export const register: Register = on => {
         <Box flexDirection="row" alignItems="center" gap="sm">
           {modes}
           <Text key="voice-starting" size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>
+          <Button key="voice-stop-starting" label="Stop voice" variant="secondary" dimColor onPress={() => turnOff($, "the footer's Stop voice, while starting")} />
         </Box>
       )
     }
