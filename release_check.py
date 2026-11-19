@@ -17,7 +17,7 @@ PLUGIN = ".claude-plugin/plugin.json"
 ZERO = "0" * 40
 # What users don't get a change from: tests, docs and the tooling that only runs here.
 NOT_SHIPPED = (r"tests/.*", r"test_[^/]*\.py", r"run_tests\.py", r"release_check\.py", r".*\.md",
-               r"githooks/.*", r"\.github/.*", r"\.claude/.*", r"\.gitignore", r"orb_demo\.py", r"staging\.sh")
+               r"githooks/.*", r"\.github/.*", r"\.claude/.*", r"\.gitignore", r"orb_demo\.py", r"next\.sh")
 
 
 def shipped(files: list[str]) -> list[str]:

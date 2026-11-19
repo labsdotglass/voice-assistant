@@ -253,19 +253,19 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
 
 
 def running_what() -> str:
-    """Which voice this is, for the start line in voice.log: the release's version, or a staging install's
-    (staging.sh), with the branch it was made from, so a test is never mistaken for the release."""
+    """Which voice this is, for the start line in voice.log: the release's version, or a next install's
+    (next.sh), with the branch it was made from, so a test is never mistaken for the release."""
     try:
         version = json.loads((Path(__file__).parent / ".claude-plugin" / "plugin.json").read_text())["version"]
     except (OSError, ValueError, KeyError):
         return "version unknown"
-    if "-staging." not in version:
+    if "-next." not in version:
         return f"version {version}"
     try:
-        branch = (home.HOME / "staging" / "branch").read_text().strip()
+        branch = (home.HOME / "next" / "branch").read_text().strip()
     except OSError:
         branch = "?"
-    return f"STAGING {version}, branch {branch}"
+    return f"NEXT {version}, branch {branch}"
 
 
 def orb_menu() -> dict:
