@@ -74,9 +74,9 @@ const UV_SETUP = /^(Using CPython|Creating virtual environment|Resolved|Download
 
 // The transcript side panel: what you said, what the voice said, what went to the session.
 const PANE = 'voice-transcript'
-// The panel's title says which version of voice runs ("Voice · 0.49.3"), a release or a staging install alike
-// (card #45). Read from the plugin's own plugin.json: a staging install runs straight from its worktree, so its
-// folder's name says nothing. A staging version ends in "-staging.<commit>": the title leaves that off, the log keeps it.
+// The panel's title says which version of voice runs: "Voice · 0.49.3" for a release, "Voice · 0.49.3 staging" for a
+// staging install (card #45). Read from the plugin's own plugin.json: a staging install runs straight from its worktree, so its
+// folder's name says nothing. A staging version ends in "-staging.<commit>": the title says staging, the log names the commit.
 let pluginVersion: string | undefined
 let stagingCommit: string | undefined
 const readStaging = async ($: Dollar) => {
@@ -84,7 +84,7 @@ const readStaging = async ($: Dollar) => {
   pluginVersion = plugin?.version?.split('-')[0] || undefined
   stagingCommit = /-staging\.([0-9a-f]+)$/.exec(plugin?.version ?? '')?.[1]
 }
-const paneTitle = (_$: Dollar): string => (pluginVersion ? `Voice · ${pluginVersion}` : 'Voice')
+const paneTitle = (_$: Dollar): string => (pluginVersion ? `Voice · ${pluginVersion}${stagingCommit ? ' staging' : ''}` : 'Voice')
 // Your messages' bubbles in the panel: a see-through mid gray, so they sit right in a light or a dark
 // theme, with the theme's own text color.
 const BUBBLE = 'rgba(128, 128, 128, 0.12)'
