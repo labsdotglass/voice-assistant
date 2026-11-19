@@ -1250,20 +1250,23 @@ export const register: Register = on => {
     const isVoiceOn = await read($, isOn)
     const setup = await read($, hiddenSetup)
     const starting = await read($, startStep)
-    const { Box, Button } = $.ui.resolve(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
+    // While voice starts: how far it's got, as plain text to the left of Stop voice (card #49). It was a
+    // button whose label changed at every step. Once voice is up the step is '' and only Stop voice is left.
+    const isStarting = !setup && !!starting
 
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
-        {!setup && starting && <Button key="voice-starting" label={starting} variant="secondary" dimColor onPress={() => void $.ui.open({ id: PANE, title: paneTitle($) })} />}
+        {isStarting && <Text key="voice-starting" size="footnote" dimColor>{starting}</Text>}
         <Button
           key="voice-toggle"
-          label={isVoiceOn ? 'Stop voice' : 'Start voice'}
+          label={isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'}
           variant="secondary" // the app's own button, with its normal padding (plain had none)
           dimColor
           onPress={async () => {
-            if (isVoiceOn) return turnOff($, "the footer's Stop voice")
+            if (isVoiceOn || isStarting) return turnOff($, "the footer's Stop voice")
             await turnOn($, "the footer's Start voice")
           }}
         />
