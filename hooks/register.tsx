@@ -1254,25 +1254,21 @@ export const register: Register = on => {
   // The floating orb is the voice UI itself (right-click it to stop, too). Before it, while the first run's
   // window is hidden, setup's progress: pressing it brings the window back.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
-    const modes = await next(e)
     const isVoiceOn = await read($, isOn)
     const setup = await read($, hiddenSetup)
     const starting = await read($, startStep)
-    const { Box, Button } = $.ui.resolve(e)
     // While voice starts: how far it's got, as plain text to the left of Stop voice (card #49). It was a
     // button whose label changed at every step. Once voice is up the step is '' and only Stop voice is left.
     const isStarting = !setup && !!starting
-    // The status is a plain Button (no pill, dim: it reads as text) before the toggle. The desktop draws a loose
-    // Text after the footer's Buttons whatever the order (and ignores a Box's width), which put the status right
-    // of Stop voice, between it and the model picker, moving it as it changed. Buttons keep their order, so as one
-    // the status sits left and "Stop voice" stays next to the model picker. Pressing it opens the panel.
+    // The status is one of the footer's own dim mode labels, drawn by the app before this row's Buttons. Tried
+    // and dropped on the desktop: a Text of ours (drawn after the Buttons, whatever the order: right of Stop
+    // voice, moving it), a plain Button (drawn as a pill all the same) and a part inside Stop voice.
+    const modes = await next(isStarting ? { ...e, props: { ...e.props, modes: [...e.props.modes, FOOTER_STEP[starting] ?? starting] } } : e)
+    const { Box, Button } = $.ui.resolve(e)
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
-        {isStarting && (
-          <Button key="voice-starting" plain dimColor label={FOOTER_STEP[starting] ?? starting} onPress={() => void $.ui.open({ id: PANE, title: paneTitle($) })} />
-        )}
         <Button
           key="voice-toggle"
           label={isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'}
