@@ -55,12 +55,13 @@ import home
 import settings
 from focus import FocusWatcher
 from interim import InterimTranscriber, SaidSoFar, load_speech_models, set_draft_language
+from mic_gate import MicGate
 from hebrew_voice import KokoroAnyLanguage, load_fast_hebrew, load_fast_kokoro
 from speaker import CAPTURE, SKIPPED, VOICEPRINT, EnrollPhrases, should_offer, SpeakerCheck, SpeakerGate, Verdict, VoicePrint, load_encoder
 from helper_transport import HANDOFF, HANDOFF_ENV, BargeInGate, HallucinationFilter, HelperAudioTransport, QuestionEndsTurn, TracingVAD, WhisperKeepingYou
 from dropped import DROPS
 from mute import MUTE
-from talker import ENDING, ENROLLING, FEED, FIRST_RUN, FIRST_TOUR, GREETING_RELEASED, RESTART, VOICE_STATE, mark_restart, restart_reason, MENU, TOUR_OPEN, tour_is_open, NEW_SESSION, OUTBOX, PROGRESS_OFF, SPEECH_READY, TASKS, Talker, VoiceStateReporter, emit, set_pass_on
+from talker import ENDING, ENROLLING, FEED, FIRST_RUN, FIRST_TOUR, GREETING_RELEASED, RESTART, VOICE_STATE, mark_restart, restart_reason, MENU, TOUR_OPEN, tour_is_open, NEW_SESSION, OUTBOX, PROGRESS_OFF, SPEECH_READY, TASKS, VOICE_READY, Talker, VoiceStateReporter, emit, set_pass_on
 
 
 OWNER_FILE = home.RUN / "owner"
@@ -437,6 +438,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
     pipeline = Pipeline(
         [
             transport.input(),
+            MicGate(ready=VOICE_READY.is_set, enrolling=lambda: ENROLLING["on"]),  # nothing said before the ready tick is heard (#38)
             InterimTranscriber(),  # draft lines while you talk; the final pass replaces them
             *speaker[:1],  # SpeakerCheck: scores each utterance against your voice print as it ends
             stt,

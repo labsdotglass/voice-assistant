@@ -2030,6 +2030,7 @@ VOICE_STATE = {"now": ""}
 # Whether the speech models are loaded (interim.load_speech_models). The daemon clears it while they
 # load: the greeting waits, and the orb stays gray ("starting") until the greeting plays.
 SPEECH_READY = threading.Event()
+VOICE_READY = threading.Event()  # the orb's first state shown (the ready tick): mic_gate.MicGate opens on it
 SPEECH_READY.set()
 # Clear while a first run holds the greeting: it's said once you press Start talking (first_run.hold_until_done).
 GREETING_RELEASED = threading.Event()
@@ -2086,8 +2087,10 @@ class VoiceStateReporter(FrameProcessor):
                 self.THINKING_TIMEOUT, lambda: self._state == "thinking" and self._set("listening")
             )
         if state != self._state:
-            if not self._state and self._on_ready:
-                self._on_ready()  # the first state shown: the orb turns colored
+            if not self._state:
+                VOICE_READY.set()  # the mic is let through from now on (mic_gate.MicGate)
+                if self._on_ready:
+                    self._on_ready()  # the first state shown: the orb turns colored
             self._state = state
             VOICE_STATE["now"] = state
             emit({"type": "state", "voice": state})
