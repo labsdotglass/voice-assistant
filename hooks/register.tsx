@@ -1262,26 +1262,27 @@ export const register: Register = on => {
     // While voice starts: how far it's got, as plain text to the left of Stop voice (card #49). It was a
     // button whose label changed at every step. Once voice is up the step is '' and only Stop voice is left.
     const isStarting = !setup && !!starting
-    // The status and the toggle are one group of a fixed width, always there, the toggle at its right end: the
-    // status can come, change and go without moving the toggle. Loose in the footer's row, the desktop drew the
-    // status right of the toggle whichever came first, and the toggle moved with it.
+    // The status goes inside the toggle, a dim part before its label: the one way its order is kept. Loose in the
+    // footer's row, the desktop drew any Text after the Buttons, whatever order they came in (and ignored a Box's
+    // width), so the status sat right of Stop voice, between it and the model picker, and moved it as it changed.
+    // Inside, "Stop voice" ends the toggle, next to the model picker, and stays put.
+    const label = isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
-        <Box key="voice-footer" flexDirection="row" alignItems="center" justifyContent="flex-end" gap="sm" width={32} flexShrink={0}>
-          {isStarting && <Text key="voice-starting" size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>}
-          <Button
-            key="voice-toggle"
-            label={isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'}
-            variant="secondary" // the app's own button, with its normal padding (plain had none)
-            dimColor
-            onPress={async () => {
-              if (isVoiceOn || isStarting) return turnOff($, "the footer's Stop voice")
-              await turnOn($, "the footer's Start voice")
-            }}
-          />
-        </Box>
+        <Button
+          key="voice-toggle"
+          variant="secondary" // the app's own button, with its normal padding (plain had none)
+          dimColor
+          onPress={async () => {
+            if (isVoiceOn || isStarting) return turnOff($, "the footer's Stop voice")
+            await turnOn($, "the footer's Start voice")
+          }}
+        >
+          {isStarting && <Text dimColor>{`${FOOTER_STEP[starting] ?? starting}  `}</Text>}
+          {label}
+        </Button>
       </Box>
     )
   })
