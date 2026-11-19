@@ -69,6 +69,14 @@ const START_STEP: Record<string, string> = {
   building: 'Building the orb…', // the audio helper and its app, after an update that changed them
   models: 'Loading the speech models…',
 }
+// The same steps for the prompt footer, where the long ones were cut: a word or two each (card #49).
+const FOOTER_STEP: Record<string, string> = {
+  [START_STEP.starting]: 'Starting…',
+  [START_STEP.packages]: 'Installing…',
+  [START_STEP.loading]: 'Loading…',
+  [START_STEP.building]: 'Building…',
+  [START_STEP.models]: 'Loading models…',
+}
 // uv's lines while it sets voice's packages up (it prints nothing when they're already there).
 const UV_SETUP = /^(Using CPython|Creating virtual environment|Resolved|Downloading|Downloaded|Prepared|Installed|Uninstalled|Building|Built)\b/
 
@@ -1246,17 +1254,29 @@ export const register: Register = on => {
   // The floating orb is the voice UI itself (right-click it to stop, too). Before it, while the first run's
   // window is hidden, setup's progress: pressing it brings the window back.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
-    const modes = await next(e)
     const isVoiceOn = await read($, isOn)
     const setup = await read($, hiddenSetup)
     const starting = await read($, startStep)
-    const { Box, Button } = $.ui.resolve(e)
-
+    // While voice starts: Stop voice and how far it's got, as plain dim text (card #49). It was a button whose
+    // label changed at every step. Once voice is up the step is '' and the toggle is back.
+    const isStarting = !setup && !!starting
+    const modes = await next(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
+    if (isStarting) {
+      // Stop voice, then the status as plain dim text. Written in the order the desktop draws them: it puts this
+      // row's Text after its Buttons whatever the order.
+      return (
+        <Box flexDirection="row" alignItems="center" gap="sm">
+          {modes}
+          <Button key="voice-stop-starting" label="Stop voice" variant="secondary" dimColor onPress={() => turnOff($, "the footer's Stop voice, while starting")} />
+          <Text key="voice-starting" size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>
+        </Box>
+      )
+    }
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
-        {!setup && starting && <Button key="voice-starting" label={starting} variant="secondary" dimColor onPress={() => void $.ui.open({ id: PANE, title: paneTitle($) })} />}
         <Button
           key="voice-toggle"
           label={isVoiceOn ? 'Stop voice' : 'Start voice'}
