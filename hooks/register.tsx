@@ -1257,25 +1257,32 @@ export const register: Register = on => {
     const isVoiceOn = await read($, isOn)
     const setup = await read($, hiddenSetup)
     const starting = await read($, startStep)
-    // While voice starts: how far it's got, as plain text to the left of Stop voice (card #49). It was a
-    // button whose label changed at every step. Once voice is up the step is '' and only Stop voice is left.
+    // While voice starts: how far it's got, as plain dim text, and no button (card #49). It was a button whose
+    // label changed at every step. Once voice is up the step is '' and the toggle is back. On the desktop a Text
+    // of ours is drawn after any Button whatever the order, and a plain Button still as a pill, so for now the
+    // status stands alone.
     const isStarting = !setup && !!starting
-    // The status is one of the footer's own dim mode labels, drawn by the app before this row's Buttons. Tried
-    // and dropped on the desktop: a Text of ours (drawn after the Buttons, whatever the order: right of Stop
-    // voice, moving it), a plain Button (drawn as a pill all the same) and a part inside Stop voice.
-    const modes = await next(isStarting ? { ...e, props: { ...e.props, modes: [...e.props.modes, FOOTER_STEP[starting] ?? starting] } } : e)
-    const { Box, Button } = $.ui.resolve(e)
+    const modes = await next(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
+    if (isStarting) {
+      return (
+        <Box flexDirection="row" alignItems="center" gap="sm">
+          {modes}
+          <Text key="voice-starting" size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>
+        </Box>
+      )
+    }
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
         <Button
           key="voice-toggle"
-          label={isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'}
+          label={isVoiceOn ? 'Stop voice' : 'Start voice'}
           variant="secondary" // the app's own button, with its normal padding (plain had none)
           dimColor
           onPress={async () => {
-            if (isVoiceOn || isStarting) return turnOff($, "the footer's Stop voice")
+            if (isVoiceOn) return turnOff($, "the footer's Stop voice")
             await turnOn($, "the footer's Start voice")
           }}
         />
