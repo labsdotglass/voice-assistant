@@ -12,7 +12,7 @@
 //           "T": your queued tasks, JSON {"waiting": n, "tasks": [{"text", "status"}]} (the orb's badge and task panel)
 //           "M": drop the orb at a spot, JSON {"x", "y"}: its centre, as fractions of the screen (tests, demo)
 //           "P": play a soft tick (the tour moved by voice)
-//           "D": voice dropped what was likely you: a short sound, and a ring flashes on the orb
+//           "D": voice dropped what was likely you: a short sound (no ring on the orb since card #53)
 //           "Q": muted ("1") or unmuted ("0"): a falling or rising chime
 //           "K": press a Claude app shortcut, "new_session" (Cmd+N) or "next_session" (Ctrl+Tab); answers
 //                on stderr "shortcut: done", "no-access", "no-app" or "not-front"
@@ -846,7 +846,6 @@ Thread.detachNewThread {
             playOnTicker(payload.first == UInt8(ascii: "1") ? muteSound : unmuteSound)
         case UInt8(ascii: "D"):
             playOnTicker(droppedSound)
-            DispatchQueue.main.async { orbView?.evaluateJavaScript("window.flashDropped && window.flashDropped()") }
         case UInt8(ascii: "K"):
             pressInClaude(String(decoding: payload, as: UTF8.self))
         case UInt8(ascii: "C"):

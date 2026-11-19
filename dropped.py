@@ -1,4 +1,4 @@
-"""Speech voice heard and dropped, and whether to tell you: a ring flashing on the orb and a short sound.
+"""Speech voice heard and dropped, and whether to tell you: a short sound.
 
 Three places drop what voice heard: the voice check (not your voice, SpeakerGate), Whisper rating it as
 likely silence (WhisperKeepingYou) and the hallucination filter. Each reports here. Every drop takes the orb
@@ -32,7 +32,7 @@ def words_of(text: str) -> str:
 class Drops:
     def __init__(self):
         self.on_drop = None  # any drop: e.g. the orb leaves thinking
-        self.on_cue = None  # a drop of what was likely you: the orb's ring and sound
+        self.on_cue = None  # a drop of what was likely you: the sound
         self.on_other_voice = None  # the voice check dropped another voice, not likely you: the orb stops showing hearing (#39)
         self.on_you = None  # the voice check matched your voice (speaker.SpeakerCheck): the orb shows hearing again
         self._last_cue = float("-inf")

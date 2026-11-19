@@ -14,7 +14,6 @@ declare global {
     setPlaybackLevel?: (level: number) => void
     setMicLevel?: (level: number) => void
     setHover?: (isHovered: boolean) => void // the pointer is over the orb (the helper tracks it)
-    flashDropped?: () => void // voice dropped what was likely you: the ring flashes once
     setMicDead?: (isDead: boolean) => void // the mic gives no sound while voice is on: a mic-signal icon stays until it does
     setMuted?: (isMuted: boolean) => void // voice is muted (for a call): faded, with a mic-off icon, until you unmute
     webkit?: { messageHandlers?: Record<string, { postMessage: (m: unknown) => void }> }
@@ -57,7 +56,6 @@ function Orb() {
   const [playback, setPlayback] = useState(0)
   const [mic, setMic] = useState(0)
   const [isHovered, setHovered] = useState(false)
-  const [drops, setDrops] = useState(0) // each one flashes the ring once (a new key restarts it)
   const [isMicDead, setMicDead] = useState(false)
   const [isMuted, setMuted] = useState(false)
 
@@ -74,7 +72,6 @@ function Orb() {
     // The mic's loudness, 0..1, from the audio helper ~30x/s.
     window.setMicLevel = setMic
     window.setHover = setHovered
-    window.flashDropped = () => setDrops(n => n + 1)
     window.setMicDead = setMicDead
     window.setMuted = setMuted
     say({ ready: true, webgpu: 'gpu' in navigator })
@@ -89,9 +86,6 @@ function Orb() {
       data-mic-dead={isMicDead || undefined}
       data-muted={isMuted || undefined}>
       <div className="orb">
-        {/* A ring around the orb, voice's way to say something about itself: here, a brief flash when
-            it dropped what you said ("I didn't catch that"), with a short sound from the helper. */}
-        {drops > 0 && <div key={drops} className="ring" data-ring="dropped" aria-hidden />}
         <AiAvatar className="avatar" state={isMuted ? 'idle' : AVATAR[voice]} level={isMuted ? 0 : levelFor(voice, playback, mic)}
           label={isMuted ? 'Voice: muted' : `Voice: ${voice}`} />
         {/* A drag handle in the middle, shown while the pointer is over the orb (in the loader's place). */}
