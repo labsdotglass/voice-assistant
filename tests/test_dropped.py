@@ -8,7 +8,7 @@ import sys
 import time
 from contextlib import redirect_stdout
 
-from pipecat.frames.frames import TranscriptionFrame
+from pipecat.frames.frames import LLMFullResponseStartFrame, TranscriptionFrame
 from pipecat.processors.frame_processor import FrameDirection
 
 import dropped
@@ -92,9 +92,42 @@ async def main():
         reporter._set("thinking")
         DROPS.report("not you", "Next on the news", False, 0.1)
     ok(shown[-1:] == ["listening"], f"any drop: thinking goes back to listening at once ({shown})")
+    reporter._others_until = 0.0  # that drop came from thinking: it started the other-voices mode (#39)
     reporter._set("speaking")
     DROPS.report("not you", "Next on the news", False, 0.1)
     ok(shown[-1:] == ["speaking"], "while voice speaks, a drop changes nothing")
+    reporter._set("listening")
+    reporter._set("hearing")
+    ok(shown[-1:] == ["hearing"], "a drop while voice spoke (its echo) doesn't hide your next turn")
+
+    # Only other voices (#39): after one is dropped, hearing and thinking show as listening.
+    reporter = talker.VoiceStateReporter()
+    shown = []
+    reporter._on_change = shown.append
+    with redirect_stdout(io.StringIO()):
+        reporter._set("listening")
+        reporter._set("hearing")
+        DROPS.report("not you", "Previously on the show", False, 0.12)
+        ok(shown[-1:] == ["listening"], f"the TV's sentence dropped: the orb goes back to listening ({shown})")
+        reporter._set("hearing")
+        reporter._set("thinking")
+        ok(shown[-1:] == ["listening"], "the TV keeps talking: still listening, not hearing or thinking")
+        reporter._set("hearing")
+        DROPS.on_you()
+        ok(shown[-1:] == ["hearing"], "you start talking over the TV: hearing shows as soon as the check matches you")
+        DROPS.report("not you", "Next on the news", False, 0.1)
+        DROPS.report("not you", "Yeah, that's good.", False, 0.30)  # likely you, just under the cutoff
+        reporter._others_until = 0.0
+        DROPS.report("not you", "Yeah, that's good.", False, 0.30)
+        reporter._set("hearing")
+        ok(shown[-1:] == ["hearing"], "a near miss that was likely you doesn't start it")
+        DROPS.report("not you", "Next on the news", False, 0.1)
+        reporter._others_until = time.monotonic() - 1  # OTHERS_SECS later
+        reporter._set("hearing")
+        ok(shown[-1:] == ["hearing"], "after a while with no other voice, hearing shows by itself")
+        DROPS.report("not you", "Next on the news", False, 0.1)
+        await reporter.process_frame(LLMFullResponseStartFrame(), FrameDirection.DOWNSTREAM)
+        ok(shown[-1:] == ["thinking"], "a reply starting means it was you: thinking shows")
 
 
 asyncio.run(main())

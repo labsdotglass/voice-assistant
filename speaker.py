@@ -465,6 +465,8 @@ class SpeakerCheck(FrameProcessor):
             score = await asyncio.to_thread(self._voice.score, audio)
             self._verdict.is_you = self._verdict.matched = score >= CUTOFF
             self._verdict.score = score
+            if self._verdict.matched and DROPS.on_you:
+                DROPS.on_you()  # your voice: the orb shows hearing again, even over other voices (#39)
             logger.info(
                 f"[speaker] {'you' if self._verdict.is_you else 'not you'}: similarity {score:.2f} "
                 f"(cutoff {CUTOFF}), {secs:.1f}s utterance, checked in {(time.perf_counter() - t0) * 1000:.0f} ms"

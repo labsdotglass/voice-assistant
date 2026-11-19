@@ -33,6 +33,8 @@ class Drops:
     def __init__(self):
         self.on_drop = None  # any drop: e.g. the orb leaves thinking
         self.on_cue = None  # a drop of what was likely you: the orb's ring and sound
+        self.on_other_voice = None  # the voice check dropped another voice, not likely you: the orb stops showing hearing (#39)
+        self.on_you = None  # the voice check matched your voice (speaker.SpeakerCheck): the orb shows hearing again
         self._last_cue = float("-inf")
 
     def report(self, reason: str, text: str, is_you: bool, score: float | None = None) -> bool:
@@ -45,6 +47,8 @@ class Drops:
         cue = likely_you and now - self._last_cue >= COOLDOWN and not MUTE.on  # muted: you're on a call, not talking to voice
         logger.info(f"[dropped] {reason}: {text.strip()!r}" + (f" (score {score:.2f})" if score is not None else "")
                     + (": cue" if cue else ", in the cooldown: no cue" if likely_you else ": no cue, likely not you"))
+        if reason == "not you" and not likely_you and self.on_other_voice:
+            self.on_other_voice()
         if cue:
             self._last_cue = now
             if self.on_cue:
