@@ -51,6 +51,13 @@ mark() {
   gh api -X POST "repos/$repo/statuses/$1" -f state="$2" -f context=next -f description="$3" --silent
 }
 
+# on_main <sha>: true when the commit is already on main. Nothing to mark then: the gate reads a PR's head, and
+# main is never one (card #51). Fetched first, quietly; offline, the local origin/main answers.
+on_main() {
+  git -C "$REPO" fetch --quiet origin main 2>/dev/null || true
+  git -C "$REPO" merge-base --is-ancestor "$1" origin/main 2>/dev/null
+}
+
 restart_note() {
   echo "Quit and reopen the Claude app (Cmd-Q) for it to take effect. The first start of a new install takes about a minute."
 }
@@ -113,7 +120,11 @@ EOF
     claude plugin install "$NEXT" >/dev/null
   fi
   echo "Next: voice runs $branch at $short."
-  mark "$commit" pending "on next, not tried yet" on && echo "GitHub: $short is marked pending; ./next.sh pass once you've tried it."
+  if on_main "$commit"; then
+    echo "GitHub: $short is on main already, so it isn't marked."
+  else
+    mark "$commit" pending "on next, not tried yet" on && echo "GitHub: $short is marked pending; ./next.sh pass once you've tried it."
+  fi
   restart_note
   ;;
 pass)
@@ -121,6 +132,10 @@ pass)
   commit=$(git -C "$TREE" rev-parse HEAD)
   short=$(git -C "$TREE" rev-parse --short HEAD)
   branch=$(cat "$DIR/branch" 2>/dev/null || echo '?')
+  if on_main "$commit"; then
+    echo "GitHub: $short is on main already: nothing to mark."
+    exit 0
+  fi
   mark "$commit" success "tried live in next" pass || exit 1
   echo "GitHub: $branch at $short is marked tried live; a PR whose head is $short can merge into main."
   head=$(git -C "$REPO" rev-parse --verify --quiet "$branch^{commit}" || true)

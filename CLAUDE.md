@@ -13,7 +13,7 @@ Voice keeps what a user tells it about how to talk in their own `~/.voice-assist
 
 Others install voice-mode from the plugin marketplace, and `claude plugin update` only brings them a change when the version in `.claude-plugin/plugin.json` goes up. So with every pushed change they should get (anything outside tests and docs), bump that version in the same push: the minor number for a new feature or behavior, the patch number for a fix. They update as the README's "Updating" says.
 
-Nothing reaches `main` untried (card #43). A ruleset on `main` requires a green `next` commit status on the PR's head commit, and only `./next.sh pass` posts it. The loop: commit and push the branch (version bump included), `./next.sh on <branch>`, restart the Claude app and try it, then `./next.sh pass`, then merge. Run `pass` only when the person says it works, never on your own; a new commit (a fix, a bump) needs `on` and `pass` again. A commit has to be on GitHub to be marked: push before `on`, or push and then `pass`.
+Nothing reaches `main` untried (card #43). A ruleset on `main` requires a green `next` commit status on the PR's head commit, and only `./next.sh pass` posts it. The loop: commit and push the branch (version bump included), `./next.sh on <branch>`, restart the Claude app and try it, then `./next.sh pass`, then merge. Run `pass` only when the person says it works, never on your own; a new commit (a fix, a bump) needs `on` and `pass` again. A commit has to be on GitHub to be marked: push before `on`, or push and then `pass`. A commit already on `main` (`./next.sh on main` after a release) is never marked.
 
 ## New features: what the checks can't catch
 
