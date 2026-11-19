@@ -59,6 +59,10 @@ A language switch restarts voice in place: the daemon re-executes itself and han
 - `~/.voice-assistant/venv`: voice's Python packages (uv's project environment), shared by every version.
 - `~/.voice-assistant/bin`: the audio helper, `Voice Assistant.app` and the first run's window, built on the first start and again only when their source changes (`builds.py`).
 
+## Releasing
+
+Users install from GitHub `main` (the repo is its own marketplace, `.claude-plugin/marketplace.json`), and `claude plugin update` brings a change only when `plugin.json`'s version goes up (`githooks/pre-push` checks the bump). Before a change reaches `main` it runs in the real app from a branch: `staging.sh on` installs the branch from a second, local marketplace and marks its commit `staging: pending` on GitHub; `staging.sh pass`, once someone has tried it, marks it green. A ruleset on `main` requires that green status, so a PR merges only when its head commit was tried live.
+
 ## Files
 
 - `daemon.py`: the voice process: audio pipeline, the socket, focus following, start and stop.
