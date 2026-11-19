@@ -112,9 +112,9 @@ async def main():
         reporter._set("hearing")
         reporter._set("thinking")
         ok(shown[-1:] == ["listening"], "the TV keeps talking: still listening, not hearing or thinking")
-        DROPS.on_you()
         reporter._set("hearing")
-        ok(shown[-1:] == ["hearing"], "the voice check matches you: hearing shows again")
+        DROPS.on_you()
+        ok(shown[-1:] == ["hearing"], "you start talking over the TV: hearing shows as soon as the check matches you")
         DROPS.report("not you", "Next on the news", False, 0.1)
         DROPS.report("not you", "Yeah, that's good.", False, 0.30)  # likely you, just under the cutoff
         reporter._others_until = 0.0

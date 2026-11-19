@@ -2062,6 +2062,7 @@ class VoiceStateReporter(FrameProcessor):
         # stops, so the orb stayed on hearing for half a minute (#39). After a drop of another voice, hearing and
         # thinking show as listening, until the voice check matches you, voice answers, or OTHERS_SECS pass.
         self._others_until = 0.0
+        self._hidden: str | None = None  # meanwhile, the hearing or thinking shown as listening: shown once it's you
         DROPS.on_other_voice = self._other_voice
         DROPS.on_you = self._you
 
@@ -2082,9 +2083,13 @@ class VoiceStateReporter(FrameProcessor):
             self._set("listening")
 
     def _you(self):
-        if self._others():
-            logger.info("[orb] your voice: hearing again")
+        was_others, hidden = self._others(), self._hidden
         self._others_until = 0.0
+        self._hidden = None
+        if was_others:
+            logger.info(f"[orb] your voice: {hidden or 'listening'} again")
+            if hidden and self._state == "listening":
+                self._set(hidden)  # what was held back while it looked like only other voices
 
     def _holding(self) -> bool:
         return self._gray or not SPEECH_READY.is_set()
@@ -2100,7 +2105,10 @@ class VoiceStateReporter(FrameProcessor):
 
     def _set(self, state: str):
         if state in ("hearing", "thinking") and self._others():
+            self._hidden = state
             state = "listening"  # only other voices are talking: nothing will be answered
+        elif state in ("listening", "speaking"):
+            self._hidden = None
         if self._holding():
             self._held = state
             return
