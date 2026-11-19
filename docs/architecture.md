@@ -61,7 +61,7 @@ A language switch restarts voice in place: the daemon re-executes itself and han
 
 ## Releasing
 
-Users install from GitHub `main` (the repo is its own marketplace, `.claude-plugin/marketplace.json`), and `claude plugin update` brings a change only when `plugin.json`'s version goes up (`githooks/pre-push` checks the bump). Before a change reaches `main` it runs in the real app from a branch: `staging.sh on` installs the branch from a second, local marketplace and marks its commit `staging: pending` on GitHub; `staging.sh pass`, once someone has tried it, marks it green. A ruleset on `main` requires that green status, so a PR merges only when its head commit was tried live.
+Users install from GitHub `main` (the repo is its own marketplace, `.claude-plugin/marketplace.json`), and `claude plugin update` brings a change only when `plugin.json`'s version goes up (`githooks/pre-push` checks the bump). Before a change reaches `main` it runs in the real app from a branch: `next.sh on` installs the branch from a second, local marketplace and marks its commit `next: pending` on GitHub; `next.sh pass`, once someone has tried it, marks it green. A ruleset on `main` requires that green status, so a PR merges only when its head commit was tried live.
 
 ## Files
 
