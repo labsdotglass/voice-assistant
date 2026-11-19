@@ -323,8 +323,8 @@ class AudioHelper:
         self._send(b"Q", b"1" if muted else b"0")
 
     def dropped(self):
-        """Voice dropped what was likely you (dropped.py): a ring flashes on the orb, with a short sound
-        unlike the tick, through voice's own audio as the tick is."""
+        """Voice dropped what was likely you (dropped.py): a short sound unlike the tick, through voice's own
+        audio as the tick is. No ring on the orb (card #53)."""
         self._send(b"D")
 
     def drop_orb(self, x: float, y: float):
