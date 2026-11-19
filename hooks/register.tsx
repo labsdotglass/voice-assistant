@@ -1257,10 +1257,8 @@ export const register: Register = on => {
     const isVoiceOn = await read($, isOn)
     const setup = await read($, hiddenSetup)
     const starting = await read($, startStep)
-    // While voice starts: how far it's got, as plain dim text, and no button (card #49). It was a button whose
-    // label changed at every step. Once voice is up the step is '' and the toggle is back. On the desktop a Text
-    // of ours is drawn after any Button whatever the order, and a plain Button still as a pill, so for now the
-    // status stands alone.
+    // While voice starts: Stop voice and how far it's got, as plain dim text (card #49). It was a button whose
+    // label changed at every step. Once voice is up the step is '' and the toggle is back.
     const isStarting = !setup && !!starting
     const modes = await next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
