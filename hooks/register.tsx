@@ -1262,17 +1262,19 @@ export const register: Register = on => {
     // of ours is drawn after any Button whatever the order, and a plain Button still as a pill, so for now the
     // status stands alone.
     const isStarting = !setup && !!starting
-    const modes = await next(e)
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const { Box, Button } = $.ui.resolve(e)
     if (isStarting) {
+      // The status as one of the footer's own dim mode labels, which the app draws itself. A Text of ours
+      // came out right of Stop voice whatever the order: the desktop draws this row's Text after its Buttons.
+      const modes = await next({ ...e, props: { ...e.props, modes: [...e.props.modes, FOOTER_STEP[starting] ?? starting] } })
       return (
         <Box flexDirection="row" alignItems="center" gap="sm">
           {modes}
-          <Text key="voice-starting" size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>
           <Button key="voice-stop-starting" label="Stop voice" variant="secondary" dimColor onPress={() => turnOff($, "the footer's Stop voice, while starting")} />
         </Box>
       )
     }
+    const modes = await next(e)
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
