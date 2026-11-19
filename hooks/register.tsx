@@ -1262,28 +1262,26 @@ export const register: Register = on => {
     // While voice starts: how far it's got, as plain text to the left of Stop voice (card #49). It was a
     // button whose label changed at every step. Once voice is up the step is '' and only Stop voice is left.
     const isStarting = !setup && !!starting
-    // The desktop footer showed this row's children right to left (the status came out right of Stop voice),
-    // so Stop voice goes first: at the edge, it stays put while the status beside it changes.
+    // The status and the toggle are one group of a fixed width, always there, the toggle at its right end: the
+    // status can come, change and go without moving the toggle. Loose in the footer's row, the desktop drew the
+    // status right of the toggle whichever came first, and the toggle moved with it.
     return (
       <Box flexDirection="row" alignItems="center" gap="sm">
         {modes}
         {setup && <Button key="voice-setup" label={setup} variant="secondary" dimColor onPress={() => showHiddenSetup($)} />}
-        <Button
-          key="voice-toggle"
-          label={isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'}
-          variant="secondary" // the app's own button, with its normal padding (plain had none)
-          dimColor
-          onPress={async () => {
-            if (isVoiceOn || isStarting) return turnOff($, "the footer's Stop voice")
-            await turnOn($, "the footer's Start voice")
-          }}
-        />
-        {isStarting && (
-          // As wide as the longest step, so a step that's shorter than the last one doesn't move anything.
-          <Box key="voice-starting" minWidth={16}>
-            <Text size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>
-          </Box>
-        )}
+        <Box key="voice-footer" flexDirection="row" alignItems="center" justifyContent="flex-end" gap="sm" width={32} flexShrink={0}>
+          {isStarting && <Text key="voice-starting" size="footnote" dimColor>{FOOTER_STEP[starting] ?? starting}</Text>}
+          <Button
+            key="voice-toggle"
+            label={isVoiceOn || isStarting ? 'Stop voice' : 'Start voice'}
+            variant="secondary" // the app's own button, with its normal padding (plain had none)
+            dimColor
+            onPress={async () => {
+              if (isVoiceOn || isStarting) return turnOff($, "the footer's Stop voice")
+              await turnOn($, "the footer's Start voice")
+            }}
+          />
+        </Box>
       </Box>
     )
   })
