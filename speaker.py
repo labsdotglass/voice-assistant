@@ -14,6 +14,7 @@ phrase: `EnrollPhrases`, after Whisper, checks each phrase it recognizes and kee
 """
 
 import asyncio
+import json
 import difflib
 import os
 import shutil
@@ -363,6 +364,22 @@ class VoicePrint:
         CAPTURE.unlink(missing_ok=True)
 
 
+# Recording for measuring the voice check (#56): while this file exists, every utterance the check sees is
+# saved to UTTERANCES as a 16 kHz wav, and SpeakerGate adds its score and Whisper's text to index.jsonl. Off
+# unless you create the file (touch ~/.voice-assistant/save-utterances); the recordings never leave the Mac.
+SAVE_FLAG = HOME / "save-utterances"
+UTTERANCES = HOME / "utterances"
+
+
+def save_utterance(audio: np.ndarray) -> str:
+    import soundfile as sf
+
+    UTTERANCES.mkdir(mode=0o700, exist_ok=True)
+    name = time.strftime("%H%M%S") + f"-{int(time.time() * 1000) % 1000:03d}.wav"
+    sf.write(UTTERANCES / name, audio, 16000)
+    return name
+
+
 class Verdict:
     """The last utterance's check, shared by SpeakerCheck (writes) and SpeakerGate (reads)."""
 
@@ -370,6 +387,7 @@ class Verdict:
         self.is_you = True
         self.matched = False  # scored as your voice, not just let through (too short to judge, no print)
         self.score: float | None = None  # the check's similarity, None when it didn't judge
+        self.saved: str | None = None  # the utterance's file, while SAVE_FLAG is on (#56): SpeakerGate adds its text
         self.ready = asyncio.Event()
         self.ready.set()
 
@@ -443,6 +461,9 @@ class SpeakerCheck(FrameProcessor):
                 import torchaudio
 
                 audio = torchaudio.functional.resample(torch.from_numpy(audio), rate, 16000).numpy()
+            self._verdict.saved = None
+            if SAVE_FLAG.exists() and not CAPTURE.exists():
+                self._verdict.saved = await asyncio.to_thread(save_utterance, audio)
             if CAPTURE.exists():  # live enrollment: keep it, answer nobody meanwhile
                 self._verdict.is_you = False
                 if self.phrases and self.phrases.tracker:  # by phrases: kept once Whisper's text says which
@@ -663,6 +684,11 @@ class SpeakerGate(FrameProcessor):
                 await asyncio.wait_for(self._verdict.ready.wait(), 1.0)  # done long before Whisper
             except TimeoutError:
                 logger.warning("[speaker] no verdict in time, letting it through")
+            if self._verdict.saved:
+                note = {"file": self._verdict.saved, "score": self._verdict.score, "is_you": self._verdict.is_you, "text": frame.text.strip()}
+                with open(UTTERANCES / "index.jsonl", "a") as f:
+                    f.write(json.dumps(note) + "\n")
+                self._verdict.saved = None
             if not self._verdict.is_you:
                 logger.info(f"[speaker] not answering another voice: {frame.text!r}")
                 DROPS.report("not you", frame.text, False, self._verdict.score)
