@@ -2046,6 +2046,7 @@ class VoiceStateReporter(FrameProcessor):
     """
 
     THINKING_TIMEOUT = 6.0  # a turn that never gets a reply (e.g. a dropped hallucination)
+    OTHERS_SECS = 10.0  # after the last other voice dropped, hearing shows again by itself
     GREETING_TIMEOUT = 20.0  # after the models load, how long the orb waits gray for the greeting
 
     def __init__(self, on_change=None, gray_until_greeting: bool = False, on_ready=None, **kwargs):
@@ -2057,10 +2058,33 @@ class VoiceStateReporter(FrameProcessor):
         self._held: str | None = None  # meanwhile, the state to show once it's over
         self._on_ready = on_ready  # the orb leaving gray (voice is ready): e.g. its tick
         DROPS.on_drop = self._dropped  # what you said was dropped: no reply is coming
+        # Only other voices (the TV, people in the room): each of their sentences is dropped, but the speech never
+        # stops, so the orb stayed on hearing for half a minute (#39). After a drop of another voice, hearing and
+        # thinking show as listening, until the voice check matches you, voice answers, or OTHERS_SECS pass.
+        self._others_until = 0.0
+        DROPS.on_other_voice = self._other_voice
+        DROPS.on_you = self._you
 
     def _dropped(self):
         if self._state == "thinking" and not self._holding():
             self._set("listening")  # at once, not after THINKING_TIMEOUT
+
+    def _others(self) -> bool:
+        return time.monotonic() < self._others_until
+
+    def _other_voice(self):
+        # Only from hearing or thinking: voice's own echo, dropped while it speaks, mustn't hide your next turn.
+        if self._state not in ("hearing", "thinking", "listening") or self._holding():
+            return
+        self._others_until = time.monotonic() + self.OTHERS_SECS
+        if self._state != "listening":
+            logger.info(f"[orb] only other voices: listening, not {self._state}")
+            self._set("listening")
+
+    def _you(self):
+        if self._others():
+            logger.info("[orb] your voice: hearing again")
+        self._others_until = 0.0
 
     def _holding(self) -> bool:
         return self._gray or not SPEECH_READY.is_set()
@@ -2075,6 +2099,8 @@ class VoiceStateReporter(FrameProcessor):
             self._set(self._held)
 
     def _set(self, state: str):
+        if state in ("hearing", "thinking") and self._others():
+            state = "listening"  # only other voices are talking: nothing will be answered
         if self._holding():
             self._held = state
             return
@@ -2109,8 +2135,11 @@ class VoiceStateReporter(FrameProcessor):
         elif isinstance(frame, UserStoppedSpeakingFrame) or (
             isinstance(frame, LLMFullResponseStartFrame) and self._state != "speaking"
         ):
+            if isinstance(frame, LLMFullResponseStartFrame):
+                self._others_until = 0.0  # a reply is coming: it was you after all
             self._set("thinking")
         elif isinstance(frame, BotStartedSpeakingFrame):
+            self._others_until = 0.0  # voice answers: it was you after all
             self._gray = False  # the greeting is playing: voice is ready
             self._set("speaking")
         elif isinstance(frame, BotStoppedSpeakingFrame):
