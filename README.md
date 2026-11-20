@@ -50,7 +50,7 @@ The orb comes up in the corner of your screen with a spinner while voice starts;
 - **How it talks:** tell it ("keep it shorter", "don't read file names out"). It remembers across restarts, in `~/.voice-assistant/instructions.txt`; "forget what I told you about how to talk" resets it.
 - **Other sessions:** "what sessions do I have?", "go to the pricing session", "start a new session in my-app and have it run the tests". Voice tells you when a session you're not looking at finishes or needs you, and while one waits on you (a permission or a question), the orb shows a violet line inside its edge until it's answered.
 - **End:** say goodbye, or right-click the orb → **Stop voice**. `/talk` toggles it.
-- **The orb:** drag it anywhere; it snaps to edges. A small badge above it counts queued requests; click it for the list.
+- **The orb:** drag it anywhere; it snaps to edges. A small badge above it counts the requests queued in all your sessions; click it for the list: the session you're in first, then the others under their project and session.
 
 ### The orb's menu
 
