@@ -29,6 +29,7 @@ import signal
 import socket
 import sys
 import threading
+import time
 from pathlib import Path
 
 from aiohttp import web
@@ -91,6 +92,17 @@ def waiting_elsewhere() -> bool:
 async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel=None, on_stop=None, on_orb_drop=None, on_enroll=None) -> web.AppRunner:
     busy: dict[str, bool] = {}  # per session, from its turn events
     waits = WAITS
+    polled: dict[str, float] = {}  # per session, when its mod last polled for commands (time.monotonic)
+
+    async def prune_waits():
+        # A session archived or stopped with a card open never says it moved on: drop it once its mod goes quiet.
+        while True:
+            await asyncio.sleep(15)
+            gone = waits.prune(polled, time.monotonic())
+            if gone:
+                logger.info(f"[waiting elsewhere] dropped, no longer polling: {[s[:8] for s in gone]}")
+                if on_event:
+                    on_event()
 
     def on_focus(session: str, title: str, project: str):
         # At startup, and each time you switch sessions in the app: voice talks to that one now,
@@ -127,6 +139,11 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
         ev = await request.json()
         OUTBOX.register(ev["client"], ev["session"])
         busy[ev["session"]] = bool(ev.get("busy"))
+        polled[ev["session"]] = time.monotonic()
+        if ev.get("waiting"):  # a permission or question form open there, e.g. after voice restarted
+            waits.seed(ev["session"])
+            if on_event:
+                on_event()  # the orb's violet stroke
         if ev["session"] == OUTBOX.target:
             # The session voice talks to reports whether it's working. At startup voice met it before it
             # registered, so it took it as idle: a session mid-turn read as idle until its next turn event.
@@ -137,7 +154,10 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
         return web.json_response({"ok": True})
 
     async def commands(request: web.Request):
-        out = await OUTBOX.take(request.query["client"], wait=float(request.query.get("wait", 15)))
+        client = request.query["client"]
+        polled[client.rsplit(":", 1)[0]] = time.monotonic()  # a client is "<session>:<load time>"
+        out = await OUTBOX.take(client, wait=float(request.query.get("wait", 15)))
+        polled[client.rsplit(":", 1)[0]] = time.monotonic()
         return web.json_response(
             {
                 "commands": out,
@@ -233,13 +253,9 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
         # which and what it wants, at the next quiet moment, and offers to take you there.
         session = ev["session"]
         found = await asyncio.to_thread(new_session.turn_summary, session)
-        if not found:  # not a session the app shows: nothing to wait for there
-            waits.moved_on(session)
-            if on_event:
-                on_event()
-            return
-        # You've gone there meanwhile, or it was answered while we looked it up.
-        if session == OUTBOX.target or not waits.still(ev):
+        # Not a session the app shows (yet: one voice just started may ask before its record is written; the
+        # orb shows it all the same), you've gone there meanwhile, or it was answered while we looked it up.
+        if not found or session == OUTBOX.target or not waits.still(ev):
             return
         what = new_session.wait_described(ev)
         logger.info(f"[waiting elsewhere] {found['title']!r} ({session[:8]}) wants {what}")
@@ -268,6 +284,7 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
     watch = FocusWatcher(on_focus)
     watch.poll()  # know where you are before the first command goes out
     asyncio.get_running_loop().create_task(watch.run())
+    asyncio.get_running_loop().create_task(prune_waits())
     return runner
 
 
@@ -310,6 +327,9 @@ def hearing(code: str, default_model: str) -> tuple[str, Language]:
 
 async def main(socket_path: str, aec: bool, headphones: bool, restart: str | None = None):
     OUTBOX.clients.update(HANDOFF.pop("clients", {}))  # after a restart in place: the sessions registered before it
+    for session, keys in HANDOFF.pop("waits", {}).items():  # and the ones waiting on you: the orb's violet stroke
+        for key in keys:
+            WAITS.add(session, key)
     if aec:
         transport = HelperAudioTransport(out_rate=24000)
     else:
@@ -572,7 +592,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
         spinner, until voice is ready) and no session finds voice gone and starts a second one. If exec
         can't happen, the old way: exit, and the session starts voice again."""
         try:
-            handed = {"clients": OUTBOX.clients}
+            handed = {"clients": OUTBOX.clients, "waits": {s: sorted(k) for s, k in WAITS.told.items() if k}}
             if orb:
                 orb.set_orb(voice="starting", opening=True)
                 handed["helper"] = orb.hand_off()

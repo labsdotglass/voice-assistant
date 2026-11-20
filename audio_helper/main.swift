@@ -280,6 +280,7 @@ final class OrbBridge: NSObject, WKScriptMessageHandler {
         log("orb page: \(m.body)")
         // A state sent before the page loaded was dropped; show the latest one now.
         if let body = m.body as? [String: Any], body["ready"] != nil {
+            orbWaiting = false  // a fresh page draws no stroke: the replay below sets it again
             if let last = lastOrbState { setOrb(last) }
             // The shadow is traced from what the window shows: once the orb is drawn, trace it again.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { orbWindow?.invalidateShadow() }
@@ -472,6 +473,7 @@ if let page = arg("--orb") {
 // on the orb moves it here instead (the page needs no left clicks). Let go near an edge and it snaps there.
 var isDraggingOrb = false  // pressed on the handle, or dragging the orb: the hand stays closed until you let go
 var orbMuted = false  // voice is muted (the "S" message's muted): the menu offers Unmute, and a click on the orb unmutes
+var orbWaiting = false  // another session waits on you: the violet stroke is showing (card #14)
 
 func dragOrb(_ window: NSWindow) {
     var grab: NSPoint?  // where the mouse took hold, relative to the window's origin
@@ -702,7 +704,10 @@ func setOrb(_ json: Data) {
     let waiting = (obj["waiting"] as? Bool) == true  // another session waits on you: a violet stroke inside the orb (card #14)
     DispatchQueue.main.async {
         lastOrbState = json
-        orbView?.evaluateJavaScript("window.setWaiting && window.setWaiting(\(waiting))")
+        if waiting != orbWaiting {
+            orbWaiting = waiting
+            orbView?.evaluateJavaScript("window.setWaiting && window.setWaiting(\(waiting))")
+        }
         if muted != orbMuted {
             orbMuted = muted
             orbView?.evaluateJavaScript("window.setMuted && window.setMuted(\(muted))")

@@ -88,7 +88,16 @@ async def main():
 
     await send({"type": "permission", "session": "Z", "what": "edit a file"})
     await asyncio.sleep(1.5)
-    ok(not daemon.waiting_elsewhere(), "a session the app doesn't show: dropped, never stuck on")
+    ok(daemon.waiting_elsewhere(), "a session without an app record yet (one voice just started): still shown")
+    await send({"type": "permission_done", "session": "Z"})
+    await settle()
+
+    await s.post("http://voice/register", json={"session": "D", "client": "D:1", "waiting": True})
+    await settle()
+    ok(daemon.waiting_elsewhere() and shown[-1], "a session that connects with a card open (voice restarted): shown")
+    await send({"type": "question_done", "session": "D", "id": "q9"})
+    await settle()
+    ok(not daemon.waiting_elsewhere(), "until it's answered")
 
     daemon.WAITS.seed("C")
     ok(daemon.waiting_elsewhere(), "one that began waiting while voice was off: shown")
@@ -98,6 +107,15 @@ async def main():
 
     await s.close()
     await runner.cleanup()
+
+    # Archived or stopped with a card open: its mod stops polling (a live one polls at least every 15 s).
+    w = new_session.Waits()
+    w.add("E", "permission:run tests")
+    t0 = w.since["E"]
+    ok(not w.prune({"E": t0 + 30}, t0 + 60), "still polling: kept")
+    ok(w.prune({"E": t0 + 30}, t0 + 80) == ["E"] and not w.open_in("A"), "45 s without a poll: dropped")
+    w.add("F", "note")
+    ok(not w.prune({}, w.since["F"] + 10), "a wait just seen, from a session that hasn't polled yet: kept for now")
 
 
 asyncio.run(main())

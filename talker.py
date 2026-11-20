@@ -751,7 +751,6 @@ class SessionFeed:
             self.pending = [p for p in self.pending if not p.startswith("[session tool")][-40:]
         return False
 
-
     def waiting(self) -> str:
         """Voice's queued prompts, for cancel_queued: each with the id the tool takes."""
         if not self.queued:

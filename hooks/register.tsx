@@ -348,7 +348,9 @@ async function connect($: Dollar): Promise<boolean> {
       method: 'POST',
       socketPath: (await paths($)).sock,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ session: sessionId, client, busy: await read($, isSessionBusy) }),
+      // waiting: a permission or a question form open here, so voice shows it after it restarts (card #14)
+      body: JSON.stringify({ session: sessionId, client, busy: await read($, isSessionBusy),
+        waiting: waitingPermission !== undefined || waitingForms.size > 0 }),
     })
     .catch(() => undefined)
   if (!res?.ok) return false
