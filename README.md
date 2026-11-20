@@ -59,7 +59,7 @@ Right-click the orb. Everything here also works by voice ("switch to Michael's v
 | Item | What it does |
 |---|---|
 | **Mute / Unmute** | For a call: voice ignores what you say and speaks not at all until you say "unmute" (or click the orb) |
-| **Show / Hide transcript** | The Voice panel beside your session: what you said and what voice said |
+| **Show / Hide transcript** | The Voice panel beside your session: what you said and what voice said. Your choice holds in every session and across restarts; the panel closes when voice turns off |
 | **Clear conversation** | Start the voice conversation fresh |
 | **Language** | The language you speak and voice answers in |
 | **Voice** | The voice it speaks with (eight for English) |

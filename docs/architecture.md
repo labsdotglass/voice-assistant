@@ -57,7 +57,7 @@ A language switch restarts voice in place: the daemon re-executes itself and han
 
 ## Where things live
 
-- `~/.voice-assistant/` (0700): settings, voice print and recordings, greetings, the first run's state, `run/` (the socket, other sessions' notes) and `logs/`.
+- `~/.voice-assistant/` (0700): settings, voice print and recordings, greetings, the first run's state, `panel` (the Voice panel open or closed, one choice for every session: each session's plugin records a change you make there while voice is on, and opens or closes the panel to follow it when voice arrives; voice turning off closes it and keeps the choice), `run/` (the socket, other sessions' notes) and `logs/`.
 - `~/.voice-assistant/venv`: voice's Python packages (uv's project environment), shared by every version.
 - `~/.voice-assistant/bin`: the audio helper, `Voice Assistant.app` and the first run's window, built on the first start and again only when their source changes (`builds.py`).
 
