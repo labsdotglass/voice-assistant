@@ -49,6 +49,7 @@ The orb comes up in the corner of your screen with a spinner while voice starts;
 - **Stop or redirect:** "stop that", "actually, do the tests first". Voice checks with you before it interrupts.
 - **How it talks:** tell it ("keep it shorter", "don't read file names out"). It remembers across restarts, in `~/.voice-assistant/instructions.txt`; "forget what I told you about how to talk" resets it.
 - **Other sessions:** "what sessions do I have?", "go to the pricing session", "start a new session in my-app and have it run the tests". Voice tells you when a session you're not looking at finishes or needs you, and while one waits on you (a permission or a question), the orb shows a violet line inside its edge until it's answered.
+- **Model and effort:** "switch this session to Sonnet", "use high effort here", "start a new session in my-app on Opus with max effort", "which model is this on?". The session you're in switches itself (it takes one short turn, after any work it's doing); a new session starts on what you named.
 - **End:** say goodbye, or right-click the orb → **Stop voice**. `/talk` toggles it.
 - **The orb:** drag it anywhere; it snaps to edges. A small badge above it counts the requests queued in all your sessions; click it for the list: the session you're in first, then the others under their project and session.
 

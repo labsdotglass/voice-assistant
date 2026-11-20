@@ -96,7 +96,11 @@ def _on_a_terminal(argv: list[str], cwd: Path, wait: float = 30) -> str:
     return out.decode(errors="replace").replace("\r", "")
 
 
-async def start(message: str, folder: str = "", name: str = "") -> tuple[bool, str]:
+MODELS = ("opus", "sonnet", "haiku")  # what --model takes by voice: aliases for the latest of each
+EFFORTS = ("low", "medium", "high", "xhigh", "max")  # what --effort takes
+
+
+async def start(message: str, folder: str = "", name: str = "", model: str = "", effort: str = "") -> tuple[bool, str]:
     """Starts a session in the folder with your first message, then opens it in the app.
     -> (started?, what happened, for voice to say)."""
     claude = find_claude()
@@ -111,8 +115,13 @@ async def start(message: str, folder: str = "", name: str = "") -> tuple[bool, s
         argv += ["--permission-mode", "auto"]
     if name:
         argv += ["--name", name]
+    # A model or effort you asked for (card #10); anything else is left to your defaults.
+    if model.lower() in MODELS:
+        argv += ["--model", model.lower()]
+    if effort.lower() in EFFORTS:
+        argv += ["--effort", effort.lower()]
     argv += ["--", message or "Hi"]  # after --: a message that starts with "-" is still the prompt, not an option
-    logger.info(f"[new session] starting in {cwd}: {message!r} (name {name!r})")
+    logger.info(f"[new session] starting in {cwd}: {message!r} (name {name!r}, model {model or 'default'}, effort {effort or 'default'})")
     proc = await asyncio.create_subprocess_exec(*argv, cwd=cwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     try:
         out, err = await asyncio.wait_for(proc.communicate(), 600)

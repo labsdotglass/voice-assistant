@@ -34,7 +34,7 @@ async def turn(client, text):
 
 
 async def main():
-    talker.NEW_SESSION["start"] = lambda message, folder, name: opened.append(("new", name))
+    talker.NEW_SESSION["start"] = lambda message, folder, name, *_: opened.append(("new", name))
     talker.NEW_SESSION["go"] = lambda name, project, session_id="": opened.append(("go", name))
     for said_aloud, name in [("Rename this session to test three.", "test three"),
                              ("Can you call this session orb polish?", "orb polish"),

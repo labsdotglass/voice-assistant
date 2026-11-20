@@ -70,6 +70,7 @@ If it's unclear whether they want something sent, ask in one short sentence.
 3h. When the events say another session finished its turn (or several did while voice was off), or that another session is waiting for the user (a permission or a question it asks), that's news from elsewhere, not about the session you're working with. For a waiting one, say in a few words what it wants; it's answered there, on screen, never by voice from here. Tell it the way a colleague would mention it in passing: brief, naming the session so the user knows which one, and asking once, lightly, whether they want to go there. A yes, or any way of saying take me there, is go_to_session with the ID the events give; anything else leaves it, and you don't ask again. If they ask later what finished or what's waiting, the events still list those sessions.
 3i. Renaming a session (this one or another) is work for the session: call send_to_session, asking it plainly to rename that session, with the new name exactly as the user said it. It is not new_session, go_to_session or voice_menu. Never say you can't rename a session.
 3j. Archiving the session you're working with: voice breaks if it's archived while you're still in it. So before anything runs, ask the user in one short question where to go first, a new session or an existing one; never send the archive request to this session. Once they say, go there with new_session or go_to_session, with archive_after true: the session you leave is archived once the move is done. Archiving any other session is plain work for the session: send_to_session.
+3k. Changing the model or reasoning effort of the session you're working with is work for the session: call send_to_session, asking it plainly to switch its own model, effort or both to exactly what the user named, as a settings change and nothing else. For a new session, pass them to new_session instead. When they ask which model the session runs on, the events say it; the effort isn't reported, so say you can't tell it and offer to ask the session.
 4. Instructions about how you talk or behave (tone, length, wording, what to say or not say; not voice mode's own settings, such as the language you both speak, your voice or how their words are passed on, which are voice_menu's and last by themselves): follow them right away, and also call remember_instruction with it, faithfully and in their terms, so the change lasts beyond this conversation. Never send such an instruction to the session: it's about you, not their project. When they ask you to forget what they told you about how to talk, call forget_instructions.
 When you call a tool, put what you say out loud in its ack field: it's spoken the moment you write it, before the tool runs, so the user hears you right away. Write no other text in that reply unless the tool's reply asks you to. Say it the way a colleague on a call would, shaped by the moment: whether it goes straight through or waits behind running work (the session events say whether the session is busy), whether you're stopping something, how the conversation is going.  Make it up fresh each time; don't fall back on stock phrases, and never say the same thing twice in a row. Keep it to one short sentence of a few words, never a single bare word. Never read out, repeat or paraphrase what you sent: refer to the work only as "that", "it" or "the next one", never by what it is (no file names, no task names).
 
@@ -485,6 +486,7 @@ class SessionFeed:
         # Voice's prompts waiting for the session, oldest first: {id, text}. Only what the mod reports
         # holding, so a cancel is never promised for a prompt a session on an older mod already passed on.
         self.queued: list[dict] = []
+        self.model = ""  # the model the session voice is on runs on, as its mod reports it
         self.next_id = 1
         self.here = {"id": "", "title": ""}  # the session you're working with, from the last switch
         self.caught_up = False  # the session's history has come (the greeting waits for it)
@@ -565,6 +567,7 @@ class SessionFeed:
                 self.pending = [f"[the session you're working with now: {which}, the one the user just switched to.]", *waiting]
                 self.news_due = bool(waiting)  # the switch is told by itself, and the other news it just dropped is gone
                 self.queued, self.forms, self.buttons, self.quiet_next, self.permissions = [], {}, {}, False, {}
+                self.model = ""  # the session voice arrives in reports its own
                 self.request = ""
                 self.last_progress = 0.0
                 self.last_answer = ""  # the new session's comes with its history
@@ -681,6 +684,13 @@ class SessionFeed:
             return True
         elif kind == "permission_done":
             self.permissions.pop(ev.get("id", ""), None)
+        elif kind == "model":
+            # The model the session runs on, from its mod: when voice arrives and after each turn (a switch shows
+            # there). Background for when the user asks, never news by itself.
+            if ev.get("model") and ev["model"] != self.model:
+                self.model = ev["model"]
+                self.pending.append(f"[the session runs on the model {self.model} (background: say it only when asked)]")
+            return False
         elif kind == "typed":
             # The user typed this in the session's chat themselves, not through you: so you can follow the
             # conversation when they switch between talking and typing. Background, never announced.
@@ -1308,7 +1318,7 @@ ARCHIVE_ARG = Annotated[bool, "True only when the user asked to archive the sess
                               "they chose to go first: it's archived once the move is done. Otherwise false"]
 
 
-# Starting a new session by voice (new_session.py): the daemon sets "start" to (message, folder, name) -> None,
+# Starting a new session by voice (new_session.py): the daemon sets "start" to (message, folder, name, model, effort) -> None,
 # and "go" to (name, project) -> None; both run in the background and report back through the feed
 # ("new_session_done").
 NEW_SESSION = {"start": None, "go": None}
@@ -1324,6 +1334,8 @@ NEW_SESSION = {"start": None, "go": None}
                                   "as send_to_session writes prompts; a short greeting if they gave none"],
         "folder": Annotated[str, "The project folder's name if they named one (as said), else empty for their projects folder"],
         "name": Annotated[str, "A short title for the session, a few words naming its task"],
+        "model": Annotated[str, "The model they asked it to run on, as one of opus, sonnet or haiku; else empty for their default"],
+        "effort": Annotated[str, "The reasoning effort they asked for, as one of low, medium, high, xhigh or max; else empty for their default"],
         "archive_after": ARCHIVE_ARG,
     },
 )
@@ -1334,7 +1346,8 @@ async def new_session(args):
         TOOL_OUTCOME["needs_words"] = True
         return {"content": [{"type": "text", "text": "Voice can't start sessions here. Say so in a few words."}]}
     archive_after(args)
-    NEW_SESSION["start"](args.get("message", ""), args.get("folder", ""), args.get("name", ""))
+    NEW_SESSION["start"](args.get("message", ""), args.get("folder", ""), args.get("name", ""),
+                         args.get("model", ""), args.get("effort", ""))
     logger.info(f"-> NEW SESSION: {args.get('name')!r} in {args.get('folder') or 'the projects folder'}: {args.get('message')!r}")
     TOOL_OUTCOME["needs_words"] = False
     return {"content": [{"type": "text", "text": "Starting: it runs its first reply, then opens in the app, and you'll be told. "

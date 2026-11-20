@@ -760,11 +760,11 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
     if first_tour:
         FIRST_RUN["start"] = start_talking
 
-    def start_new_session(message: str, folder: str, name: str):
+    def start_new_session(message: str, folder: str, name: str, model: str = "", effort: str = ""):
         # A new session by voice: started and opened in the background; voice says when it's open.
         async def run():
             # Said 2s after it opens: after the switch to it, which starts voice afresh there.
-            ok, said = await new_session.on_the_orb(orb, new_session.start(message, folder, name), settle=2)
+            ok, said = await new_session.on_the_orb(orb, new_session.start(message, folder, name, model, effort), settle=2)
             talker.on_session_event({"type": "new_session_done", "ok": ok, "text": said})
         asyncio.create_task(run())
 

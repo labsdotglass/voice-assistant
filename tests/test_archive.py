@@ -39,7 +39,7 @@ async def turn(client, text):
 
 
 async def main():
-    talker.NEW_SESSION["start"] = lambda message, folder, name: opened.append(("new", name))
+    talker.NEW_SESSION["start"] = lambda message, folder, name, *_: opened.append(("new", name))
     talker.NEW_SESSION["go"] = lambda name, project, session_id="": opened.append(("go", name))
     for ask, where, kind in [("Archive this session.", "A new one, please.", "new"),
                              ("Can you archive this session for me?", "Take me to the website setup session.", "go")]:

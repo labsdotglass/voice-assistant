@@ -86,7 +86,7 @@ async def stop_voice():
 async def sessions():
     # A new session by voice: started with its first message, in the folder named.
     started = []
-    talker.NEW_SESSION["start"] = lambda message, folder, name: started.append((message, folder.lower(), name))
+    talker.NEW_SESSION["start"] = lambda message, folder, name, *_: started.append((message, folder.lower(), name))
     for text, folder, words in [("Start a new session in dev and have it check the git status of every repo.", "", "git"),
                                 ("Open a new session in design kit and tell it to run the tests.", "design", "test"),
                                 ("Open a new session.", "", None)]:

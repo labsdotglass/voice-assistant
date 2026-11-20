@@ -427,6 +427,7 @@ async function setVoice($: Dollar, isMine: boolean, isSwitch = false) {
     else await followPanelChoice($)
 
     postQueue($) // the talker learns what this session has waiting
+    void postModel($) // and which model it runs on, for when you ask (card #10)
     void postHistory($) // and what was said here before voice came, so it starts with this session's context
     // And what this session is waiting on you for: an open question form, or its closing question card.
     for (const [id, questions] of waitingForms) post($, { type: 'question', id, questions, arrived: true })
@@ -438,6 +439,12 @@ async function setVoice($: Dollar, isMine: boolean, isSwitch = false) {
     // Catches a close by the panel's own button even if no event reaches this module.
     panelPoll = $.clock.every(2000, () => void syncPanel($))
   }
+}
+
+// The model this session runs on, as /model shows it, for the talker to tell you when you ask.
+async function postModel($: Dollar) {
+  const model = await $.session.model().catch(() => '')
+  if (model) post($, { type: 'model', model })
 }
 
 // This session's recent conversation, for the talker when voice comes to this session (it starts
@@ -1190,6 +1197,7 @@ export const register: Register = on => {
       if (mainTurn === e.turnId) mainTurn = undefined
       await update($, isSessionBusy, () => false)
       post($, { type: 'turn_complete', answer: e.answer, durationMs: e.durationMs, isAborted: e.isAborted })
+      void postModel($) // a switch of model, asked by voice or made in the app, shows after a turn
       if (!e.isAborted) void leaveNote($, e.answer).catch(() => undefined) // for the other sessions' band and voice
       const waiting = queued.shift() // voice's next prompt, now that the session is free
       if (waiting) {
