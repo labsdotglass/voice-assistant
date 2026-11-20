@@ -233,6 +233,25 @@ async def main():
     ok([l["code"] for l in onboarding.languages()] == [c for c, *_ in settings.LANGUAGES if c not in settings.EXPERIMENTAL] + sorted(settings.EXPERIMENTAL),
        "onboarding lists the languages in menu order, experimental last")
 
+    # The foot of the orb's menu: the running version, as the Voice panel's title says it (card #37).
+    import daemon
+    real = daemon.Path(daemon.__file__).parent / ".claude-plugin" / "plugin.json"
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / ".claude-plugin").mkdir()
+        fake = Path(d) / ".claude-plugin" / "plugin.json"
+        saved = daemon.__file__
+        daemon.__file__ = str(Path(d) / "daemon.py")
+        try:
+            fake.write_text('{"version": "0.49.8"}')
+            ok(daemon.version_label() == "Voice · 0.49.8", "the menu shows a release's version")
+            fake.write_text('{"version": "0.49.8-next.ab12cd3"}')
+            ok(daemon.version_label() == "Voice · 0.49.8 next", "and marks a next install")
+            fake.unlink()
+            ok(daemon.version_label() == "Voice", "with no plugin.json, just Voice")
+        finally:
+            daemon.__file__ = saved
+    ok(daemon.orb_menu()["version"].startswith("Voice · ") and real.exists(), "the menu's settings carry the version")
+
     print(f"{sum(results)}/{len(results)} passed")
     sys.exit(0 if all(results) else 1)
 
