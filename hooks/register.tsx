@@ -493,9 +493,10 @@ async function pollCommands($: Dollar, me: string) {
 const REJOIN_TRIES = 30
 const REJOIN_EVERY_MS = 2000
 async function rejoin($: Dollar) {
-  for (let i = 0; i < REJOIN_TRIES && !polling; i++) {
+  // Called from inside the polling loop, which ends right after: `polling` is still true until then.
+  for (let i = 0; i < REJOIN_TRIES; i++) {
     await sleep($, REJOIN_EVERY_MS)
-    if (polling) return
+    if (polling) return // registered again meanwhile (you opened it)
     if (await isDaemonUp($)) {
       if (await connect($)) vlog($, 'voice is back: registered with it again')
       return
