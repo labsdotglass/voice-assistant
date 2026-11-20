@@ -14,8 +14,8 @@
 
 .stage[data-voice='hearing'] .orb { transform: scale(1.06); }
 .stage[data-muted] .orb { transform: none; }  /* muted, someone talking (you on the call) doesn't make it grow */
-.stage[data-voice='starting'] .orb,
-.stage[data-voice='off'] .orb { opacity: 0.6; }
+/* Off and starting: the avatar's idle palette makes the orb gray; it stays fully opaque (card #50), so
+   nothing behind the orb's window shows through it. Gray, not transparency, says voice isn't on yet. */
 
 /* Session working: three soft dots in the middle of the orb, breathing in turn. */
 .orb { position: relative; }
