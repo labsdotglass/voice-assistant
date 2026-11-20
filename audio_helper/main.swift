@@ -7,7 +7,7 @@
 // stdin:  framed messages, [type: 1 byte][length: UInt32 LE][payload]
 //           "A": audio to play, mono int16 at --out-rate
 //           "F": flush, stop playing everything queued (barge-in)
-//           "S": orb state, JSON {"voice": "...", "busy": bool, "opening": bool, "hidden": bool, "muted": bool}
+//           "S": orb state, JSON {"voice": "...", "busy": bool, "opening": bool, "hidden": bool, "muted": bool, "waiting": bool}
 //           "V": whether the Voice panel is showing, "1" or "0" (for the orb's menu)
 //           "T": your queued tasks, JSON {"waiting": n, "tasks": [{"text", "status"}]} (the orb's badge and task panel)
 //           "M": drop the orb at a spot, JSON {"x", "y"}: its centre, as fractions of the screen (tests, demo)
@@ -699,8 +699,10 @@ func setOrb(_ json: Data) {
     let opening = (obj["opening"] as? Bool) == true
     let hidden = (obj["hidden"] as? Bool) == true
     let muted = (obj["muted"] as? Bool) == true
+    let waiting = (obj["waiting"] as? Bool) == true  // the session waits on you: a steady ring (card #14)
     DispatchQueue.main.async {
         lastOrbState = json
+        orbView?.evaluateJavaScript("window.setWaiting && window.setWaiting(\(waiting))")
         if muted != orbMuted {
             orbMuted = muted
             orbView?.evaluateJavaScript("window.setMuted && window.setMuted(\(muted))")

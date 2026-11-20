@@ -150,6 +150,21 @@
 .stage[data-muted] .opening,
 .stage[data-muted][data-hover] .muted { opacity: 0; }
 
+/* The session waits on you (a permission or a question): a steady amber ring around the orb until it's answered,
+   on screen or by voice (card #14). Outside the orb, so it never covers the working dots or an icon in the middle;
+   it doesn't pulse, so it reads as "still waiting", not as news. */
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: -5%;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2.5px rgb(245 165 36 / 0.95), 0 0 10px 1px rgb(245 165 36 / 0.45);
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+.stage[data-waiting] .orb::after { opacity: 1; }
+
 @keyframes petal {
   0% { opacity: 1; }
   100% { opacity: 0.2; }

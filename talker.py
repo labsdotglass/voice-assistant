@@ -751,6 +751,12 @@ class SessionFeed:
             self.pending = [p for p in self.pending if not p.startswith("[session tool")][-40:]
         return False
 
+    @property
+    def waiting_on_you(self) -> bool:
+        """The session voice is on waits on you: a permission or a question (a form, or a closing question with
+        buttons) still open. The orb shows it until it's answered (card #14); a switch clears both."""
+        return bool(self.permissions or self.forms)
+
     def waiting(self) -> str:
         """Voice's queued prompts, for cancel_queued: each with the id the tool takes."""
         if not self.queued:

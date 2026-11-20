@@ -488,7 +488,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
     inbox = await serve_events(
         talker,
         socket_path,
-        on_event=(lambda: orb.set_orb(busy=FEED.busy)) if orb else None,
+        on_event=(lambda: orb.set_orb(busy=FEED.busy, waiting=FEED.waiting_on_you)) if orb else None,
         on_panel=orb.set_panel_visible if orb else None,
         on_stop=lambda: asyncio.create_task(task.cancel()),  # Stop voice from a session that didn't start us
         on_orb_drop=orb.drop_orb if orb else None,
