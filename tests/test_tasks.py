@@ -51,8 +51,8 @@ FEED.add({"type": "queue", "session": A, "items": [merge]})
 ok(TASKS.snapshot()["waiting"] == 1, "queued in the session you're in: the badge shows 1")
 
 FEED.add({"type": "switched", "session": B, "title": "Other", "busy": False})
-ok(TASKS.snapshot()["waiting"] == 0 and not [t for t in TASKS.snapshot()["tasks"] if not t["where"]],
-   "in another session: the badge and that session's own tasks are none")
+ok(TASKS.snapshot()["waiting"] == 1 and not [t for t in TASKS.snapshot()["tasks"] if not t["where"]],
+   "in another session: none of its own, and the badge still counts the one waiting elsewhere, to click from here")
 ok([t["where"] for t in TASKS.snapshot()["tasks"]] == ["Editor"], "and the one still waiting in the session you left is listed under its title (#9)")
 for ev in ({"type": "turn_complete"}, {"type": "queue", "items": []}, {"type": "queue_started", "id": "a1", "text": "Merge and push"},
            {"type": "turn_start"}):
@@ -88,7 +88,8 @@ TASKS.waiting([{"id": "p2", "text": "Make it sticky"}], "s-web")
 snap = TASKS.snapshot()
 mine = [t for t in snap["tasks"] if not t["where"]]
 theirs = [t for t in snap["tasks"] if t["where"]]
-ok([t["text"] for t in mine] == ["Make it sticky"] and snap["waiting"] == 1, "the session you're in: its tasks, unlabeled, and the badge counts only them")
+ok([t["text"] for t in mine] == ["Make it sticky"] and snap["waiting"] == 2,
+   "the session you're in: its tasks, unlabeled; the badge counts what waits in every session")
 ok([(t["where"], t["text"]) for t in theirs] == [("api · Fix login", "Add a rate limit")], "another session's open task: under its project and title")
 ok(snap["tasks"].index(mine[0]) < snap["tasks"].index(theirs[0]), "yours first")
 ok("api · Fix login: Add a rate limit (waiting)" in TASKS.elsewhere_note(), "the talker hears where the other open task is")

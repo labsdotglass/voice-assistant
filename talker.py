@@ -298,12 +298,12 @@ class TaskBoard:
         return [t for t in self.tasks if self._here(t)]
 
     def snapshot(self) -> dict:
-        """The orb's badge counts what waits in the session you're in; its panel lists those tasks, then the
-        ones still open elsewhere, each with `where` (empty for the session you're in)."""
+        """The orb's badge counts what waits in every session, so it's there to click from any of them; its panel
+        lists the session you're in first, then the ones still open elsewhere, each with `where` (empty for yours)."""
         shown = self._shown()
         others = sorted(self.elsewhere(), key=lambda t: (self.where(t["session"]), str(t["session"])))  # stable: each session's in order
         return {
-            "waiting": sum(t["status"] == "waiting" for t in shown),
+            "waiting": sum(t["status"] == "waiting" for t in shown + others),
             "tasks": [{"text": t["text"][:200], "status": t["status"], "where": "", "group": ""} for t in shown]
             + [{"text": t["text"][:200], "status": t["status"], "where": self.where(t["session"]), "group": str(t["session"])}
                for t in others],  # group: two sessions with the same name still get a heading each
