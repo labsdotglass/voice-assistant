@@ -9,7 +9,7 @@
 
 .orb {
   width: 76%;
-  transition: transform 300ms ease-out, opacity 300ms ease-out;
+  transition: transform 300ms ease-out;
 }
 
 .stage[data-voice='hearing'] .orb { transform: scale(1.06); }
