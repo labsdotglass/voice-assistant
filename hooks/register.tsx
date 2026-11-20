@@ -457,6 +457,7 @@ async function pollCommands($: Dollar, me: string) {
           vlog($, `not restarting it from this session${failed ? `: ${failed.why}` : ''}`)
           await voiceOff($)
           if (wasMine && wasOn) await tellFailure($, failed?.why ?? "Voice keeps stopping, so it won't start again by itself. Start it when you're ready.")
+          else if (wasOn && !failed?.final) void rejoin($) // the session that had voice starts it again: join it there
         }
         return
       }
@@ -483,6 +484,22 @@ async function pollCommands($: Dollar, me: string) {
   } finally {
     polling = false
     vlog($, 'stopped polling the daemon')
+  }
+}
+
+// After voice dies, the session that had it starts it again; every other session waits for that and registers
+// again, so voice keeps knowing what they're doing and what they wait on you for (the orb's violet stroke, card
+// #14). Otherwise one would only come back when you open it. A minute at most: after that, opening it does.
+const REJOIN_TRIES = 30
+const REJOIN_EVERY_MS = 2000
+async function rejoin($: Dollar) {
+  for (let i = 0; i < REJOIN_TRIES && !polling; i++) {
+    await sleep($, REJOIN_EVERY_MS)
+    if (polling) return
+    if (await isDaemonUp($)) {
+      if (await connect($)) vlog($, 'voice is back: registered with it again')
+      return
+    }
   }
 }
 
