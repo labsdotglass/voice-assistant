@@ -335,30 +335,44 @@ const panelChoice = ($: Dollar) =>
 const savePanelChoice = ($: Dollar, isOpen: boolean) =>
   paths($).then(p => $.fs.write(p.panel, isOpen ? 'open' : 'closed')).catch(() => undefined)
 
-// Opening or closing the panel to follow your choice (or because voice turned off) isn't a choice of yours:
-// while this is set, syncPanel doesn't record what it sees.
-let followingChoice = false
+// Opening or closing the panel to follow your choice (or because voice turned off) isn't a choice of yours.
+// Each such change bumps panelMoves, and a syncPanel that saw it happen (it started before, or one is still
+// running) records nothing: several can overlap, and the 2 s poll can be mid-read. Never throws: the UI may
+// be gone (the daemon died, the window closed), and voice turning off must still finish.
+let panelMoves = 0
+let movingPanel = 0
 async function setPanel($: Dollar, isOpen: boolean) {
-  followingChoice = true
+  panelMoves++
+  movingPanel++
   try {
     if (isOpen) await $.ui.open({ id: PANE, title: paneTitle($) })
-    else await $.ui.close({ id: PANE }).catch(() => undefined)
-    await syncPanel($, true)
+    else await $.ui.close({ id: PANE })
+  } catch (err) {
+    vlog($, `panel ${isOpen ? 'open' : 'close'} failed: ${String(err)}`)
   } finally {
-    followingChoice = false
+    movingPanel--
+    panelMoves++
   }
+  await syncPanel($, true).catch(() => undefined)
 }
-const followPanelChoice = async ($: Dollar) => setPanel($, await panelChoice($))
+// Voice stopping makes a pending follow moot: one that read the file before voice stopped opens nothing after.
+let voiceOffs = 0
+async function followPanelChoice($: Dollar) {
+  const offs = voiceOffs
+  const isOpen = await panelChoice($)
+  if (offs === voiceOffs) await setPanel($, isOpen)
+}
 
 // Whether the Voice panel is up, from the app's own record of panes, sent to the orb so its
 // right-click menu offers Show or Hide transcript. Only changes are sent. In the session voice is on, a
 // change you made (the orb's menu, by voice, /voice-panel, the panel's own close button) becomes the choice.
 let sentPanel: boolean | undefined
 async function syncPanel($: Dollar, force = false) {
+  const moves = panelMoves
   const isUp = (await $.ui.panes()).some(pane => pane.id === PANE)
   const wasUp = await read($, isPanelOpen)
   await update($, isPanelOpen, () => isUp)
-  if (hasVoice && !followingChoice && isUp !== wasUp) {
+  if (hasVoice && !movingPanel && moves === panelMoves && isUp !== wasUp) {
     vlog($, `panel choice: ${isUp ? 'open' : 'closed'}, for every session`)
     await savePanelChoice($, isUp)
   }
@@ -395,6 +409,8 @@ async function connect($: Dollar): Promise<boolean> {
 // Whether voice talks to this session; the daemon decides, from which session the app has in focus.
 async function setVoice($: Dollar, isMine: boolean) {
   if (isMine === hasVoice) return
+  // Leaving: a close by the panel's own button since the last 2 s poll still counts as your choice.
+  if (!isMine) await syncPanel($).catch(() => undefined)
   hasVoice = isMine
   vlog($, isMine ? 'voice now talks to this session' : 'voice no longer talks to this session')
   panelPoll?.cancel()
@@ -404,7 +420,7 @@ async function setVoice($: Dollar, isMine: boolean) {
     await update($, voice, () => 'listening') // until the daemon's next state line
     // Open or closed as you last left it, in whichever session; a first run's window is the one to look at
     // meanwhile, and the panel follows the choice once it's gone (turnOn).
-    if (firstRunOpen) await syncPanel($, true)
+    if (firstRunOpen) await syncPanel($, true).catch(() => undefined)
     else await followPanelChoice($)
 
     postQueue($) // the talker learns what this session has waiting
@@ -547,6 +563,9 @@ const isDaemonUp = ($: Dollar) =>
 async function voiceOff($: Dollar) {
   vlog($, 'voice marked off in this session')
   // The panel goes with voice; your choice stays, so the next start opens it again if you had it open.
+  voiceOffs++
+  panelPoll?.cancel() // its next tick would see the close below as yours
+  panelPoll = undefined
   await setPanel($, false)
   await update($, isOn, () => false)
   await update($, voice, () => 'off')
