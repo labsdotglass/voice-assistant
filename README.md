@@ -66,6 +66,7 @@ Right-click the orb. Everything here also works by voice ("switch to Michael's v
 | **Pass on my words** | **Concise** (default) sends your request in as few words as carry it; **Cleaned up** keeps your wording minus fillers and slips |
 | **More** | **Learn my voice again**, **Show the tour**, **Progress updates** |
 | **Stop voice** | Turn voice off |
+| *Voice · 0.51.0* | The version running, greyed out; "next" after it while you're trying a branch |
 
 Slash commands: `/talk`, `/voice-enroll` (learn your voice again), `/voice-tour`, `/voice-panel` (reopen the transcript).
 

@@ -16,7 +16,7 @@
 //           "Q": muted ("1") or unmuted ("0"): a falling or rising chime
 //           "K": press a Claude app shortcut, "new_session" (Cmd+N) or "next_session" (Ctrl+Tab); answers
 //                on stderr "shortcut: done", "no-access", "no-app" or "not-front"
-//           "C": the menu's settings, JSON {"language", "voice", "pass_on", "languages": [[id, label]], "voices": [[id, label]], "modes": [[id, label]], "progress": bool}
+//           "C": the menu's settings, JSON {"language", "voice", "pass_on", "languages": [[id, label]], "voices": [[id, label]], "modes": [[id, label]], "progress": bool, "version"}
 //
 // With --orb it also shows a floating, transparent, always-on-top window with the
 // The AiAvatar orb (WebGPU, orb-page/), driven by the "S" messages. --orb-hidden starts it out of sight, as
@@ -375,6 +375,14 @@ final class OrbWebView: WKWebView {
         let stop = NSMenuItem(title: "Stop voice", action: #selector(stopVoice), keyEquivalent: "")
         stop.target = self
         menu.addItem(stop)
+        // The running version, greyed and not clickable, as the Voice panel's title shows it ("Voice · 0.49.8",
+        // "... next" while next runs). A label, not an action, so it needs no voice route.
+        if let version = orbSettings["version"] as? String, !version.isEmpty {
+            menu.addItem(.separator())
+            let label = NSMenuItem(title: version, action: nil, keyEquivalent: "")
+            label.isEnabled = false
+            menu.addItem(label)
+        }
     }
 
     // A submenu of choices from the latest "C" message, the current one ticked.

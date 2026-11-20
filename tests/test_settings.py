@@ -233,6 +233,22 @@ async def main():
     ok([l["code"] for l in onboarding.languages()] == [c for c, *_ in settings.LANGUAGES if c not in settings.EXPERIMENTAL] + sorted(settings.EXPERIMENTAL),
        "onboarding lists the languages in menu order, experimental last")
 
+    # The foot of the orb's menu: the running version, as the Voice panel's title says it (card #37).
+    import daemon
+    ok(daemon.version_label("0.49.8") == "Voice · 0.49.8", "the menu shows a release's version")
+    ok(daemon.version_label("0.49.8-next.ab12cd3") == "Voice · 0.49.8 next", "and marks a next install")
+    ok(daemon.version_label(None) == "Voice", "with no version, just Voice")
+    with tempfile.TemporaryDirectory() as d:
+        fake = Path(d) / "plugin.json"
+        ok(daemon.plugin_version(fake) is None, "no plugin.json: no version")
+        for bad in ('{"version": 1}', '{"version": ""}', '{}', 'not json'):
+            fake.write_text(bad)
+            ok(daemon.plugin_version(fake) is None, f"an unusable plugin.json ({bad}): no version, nothing raised")
+        fake.write_text('{"version": "0.51.0"}')
+        ok(daemon.plugin_version(fake) == "0.51.0", "a good one: its version")
+    ok(daemon.orb_menu()["version"] == daemon.version_label(daemon.VERSION) != "Voice",
+       "the menu carries the version read at start")
+
     print(f"{sum(results)}/{len(results)} passed")
     sys.exit(0 if all(results) else 1)
 

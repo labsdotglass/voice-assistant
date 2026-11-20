@@ -288,12 +288,26 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
     return runner
 
 
+PLUGIN_JSON = Path(__file__).parent / ".claude-plugin" / "plugin.json"
+
+
+def plugin_version(path: Path = PLUGIN_JSON) -> str | None:
+    """The version in plugin.json ("0.51.0", or "0.51.0-next.<commit>" for a next install); None if unreadable."""
+    try:
+        version = json.loads(path.read_text())["version"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return version if isinstance(version, str) and version else None
+
+
+VERSION = plugin_version()  # read once: what runs, even if the install moves on before voice restarts
+
+
 def running_what() -> str:
     """Which voice this is, for the start line in voice.log: the release's version, or a next install's
     (next.sh), with the branch it was made from, so a test is never mistaken for the release."""
-    try:
-        version = json.loads((Path(__file__).parent / ".claude-plugin" / "plugin.json").read_text())["version"]
-    except (OSError, ValueError, KeyError):
+    version = VERSION
+    if not version:
         return "version unknown"
     if "-next." not in version:
         return f"version {version}"
@@ -304,9 +318,18 @@ def running_what() -> str:
     return f"NEXT {version}, branch {branch}"
 
 
+def version_label(version: str | None = VERSION) -> str:
+    """The running version for the foot of the orb's menu, as the Voice panel's title shows it
+    (register.tsx's paneTitle): "Voice · 0.49.8", or "Voice · 0.49.8 next" while next runs."""
+    if not version:
+        return "Voice"
+    return f"Voice · {version.split('-')[0]}{' next' if '-next.' in version else ''}"
+
+
 def orb_menu() -> dict:
-    """What the orb's menu shows: the settings with their choices, and More's Progress updates switch."""
-    return {**settings.menu(settings.load()), "progress": not PROGRESS_OFF.exists()}
+    """What the orb's menu shows: the settings with their choices, More's Progress updates switch, and the
+    running version at its foot."""
+    return {**settings.menu(settings.load()), "progress": not PROGRESS_OFF.exists(), "version": version_label()}
 
 
 # Pipecat's language for each of the menu's languages.
