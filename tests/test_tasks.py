@@ -51,7 +51,9 @@ FEED.add({"type": "queue", "session": A, "items": [merge]})
 ok(TASKS.snapshot()["waiting"] == 1, "queued in the session you're in: the badge shows 1")
 
 FEED.add({"type": "switched", "session": B, "title": "Other", "busy": False})
-ok(TASKS.snapshot()["waiting"] == 0 and not TASKS.snapshot()["tasks"], "in another session: the orb shows that session's tasks, none")
+ok(TASKS.snapshot()["waiting"] == 0 and not [t for t in TASKS.snapshot()["tasks"] if not t["where"]],
+   "in another session: the badge and that session's own tasks are none")
+ok([t["where"] for t in TASKS.snapshot()["tasks"]] == ["Editor"], "and the one still waiting in the session you left is listed under its title (#9)")
 for ev in ({"type": "turn_complete"}, {"type": "queue", "items": []}, {"type": "queue_started", "id": "a1", "text": "Merge and push"},
            {"type": "turn_start"}):
     TASKS.on_event({**ev, "session": A})  # what daemon.py does with another session's events
@@ -74,6 +76,30 @@ TASKS.on_event({"type": "turn_complete", "session": B})
 ok(TASKS._find("a4")["status"] == "running", "another session's turn ending doesn't finish it")
 TASKS.on_event({"type": "turn_complete", "session": A})
 ok(TASKS._find("a4")["status"] == "done", "its own session's does")
+
+# Card #9: the panel says where each task is. Yours first, then what's still open in your other sessions,
+# under their project and session's title; the talker hears those too, to name the project when asked.
+FEED.add({"type": "switched", "session": "s-api", "title": "Fix login", "project": "api", "busy": True})
+TASKS.on_event({"type": "turn_start", "session": "s-api"})
+TASKS.waiting([{"id": "p1", "text": "Add a rate limit"}], "s-api")
+FEED.add({"type": "switched", "session": "s-web", "title": "New header", "project": "web", "busy": True})
+TASKS.on_event({"type": "turn_start", "session": "s-web"})
+TASKS.waiting([{"id": "p2", "text": "Make it sticky"}], "s-web")
+snap = TASKS.snapshot()
+mine = [t for t in snap["tasks"] if not t["where"]]
+theirs = [t for t in snap["tasks"] if t["where"]]
+ok([t["text"] for t in mine] == ["Make it sticky"] and snap["waiting"] == 1, "the session you're in: its tasks, unlabeled, and the badge counts only them")
+ok([(t["where"], t["text"]) for t in theirs] == [("api · Fix login", "Add a rate limit")], "another session's open task: under its project and title")
+ok(snap["tasks"].index(mine[0]) < snap["tasks"].index(theirs[0]), "yours first")
+ok("api · Fix login: Add a rate limit (waiting)" in TASKS.elsewhere_note(), "the talker hears where the other open task is")
+FEED.pending, FEED.queued, FEED.forms, FEED.permissions = [], [], {}, {}
+ok(FEED.drain(you_spoke=False) == "", "alone, other sessions' tasks are no news: voice doesn't speak up to list them")
+ok("api · Fix login" in FEED.drain(you_spoke=True), "but when you speak, the talker has them")
+TASKS.waiting([], "s-api")  # sent: running, its session working
+TASKS.on_event({"type": "turn_complete", "session": "s-api"})
+ok(all(not t["where"] for t in TASKS.snapshot()["tasks"]), "once it's done there, it leaves your panel")
+TASKS.show("s-x")
+ok(TASKS.where("s-unknown") == "Another session", "a session voice never saw: still labeled")
 
 print(f"{sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

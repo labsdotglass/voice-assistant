@@ -197,7 +197,8 @@ class TaskBoard:
     once the mod sent it, done when that turn finishes, cancelled if you took it back. Each belongs
     to its session, and every session's events reach it (daemon.py), not only the one voice talks
     to: a prompt sent or finished while you're elsewhere is never left waiting. The orb shows the
-    session you're in. The last KEEP are kept; `on_change(snapshot)` is the orb.
+    session you're in first, then what's still open in your other sessions, each under its project and
+    session's title (card #9). The last KEEP are kept; `on_change(snapshot)` is the orb.
     """
 
     KEEP = 10
@@ -205,7 +206,8 @@ class TaskBoard:
     def __init__(self):
         self.tasks: list[dict] = []  # {id, text, status, session}, oldest first
         self.busy: set = set()  # sessions working on a turn
-        self.current = None  # the session voice talks to: the one the orb shows
+        self.current = None  # the session voice talks to: the one the orb shows first
+        self.names: dict = {}  # session -> (title, project), from focus switches: where a task is, said and shown
         self.on_change = None
 
     def _find(self, task_id: str) -> dict | None:
@@ -224,10 +226,32 @@ class TaskBoard:
             self.busy.discard(session)
             self.turn_done(session)
 
-    def show(self, session):
-        """You're in another session now: the orb shows its tasks."""
+    def show(self, session, title: str = "", project: str = ""):
+        """You're in another session now: the orb shows its tasks first."""
         self.current = session
+        if session and (title or project):
+            self.names[session] = (title, project)
         self._changed()
+
+    def where(self, session) -> str:
+        """A session's place, as the panel heads its tasks: "voice-assistant · Fix the orb"."""
+        title, project = self.names.get(session, ("", ""))
+        return " · ".join(x for x in (project, title) if x) or "Another session"
+
+    def _here(self, task: dict) -> bool:
+        return self.current is None or task["session"] in (self.current, None)
+
+    def elsewhere(self) -> list[dict]:
+        """Tasks still open (waiting or running) in sessions you're not in."""
+        return [t for t in self.tasks if not self._here(t) and t["status"] in ("waiting", "running")]
+
+    def elsewhere_note(self) -> str:
+        """For the talker: what's still open in your other sessions, so asked what's queued it says where."""
+        open_ = self.elsewhere()
+        if not open_:
+            return ""
+        items = "\n".join(f"  {self.where(t['session'])}: {t['text'][:120]} ({t['status']})" for t in open_)
+        return f"[still open in your other sessions, by project and session; name the project when you mention one:\n{items}]\n"
 
     def waiting(self, items: list[dict], session=None):
         """The mod's queue as it stands: new ones are waiting. One waiting here that's no longer in it was
@@ -262,13 +286,17 @@ class TaskBoard:
         self._changed()
 
     def _shown(self) -> list[dict]:
-        return [t for t in self.tasks if self.current is None or t["session"] in (self.current, None)]
+        return [t for t in self.tasks if self._here(t)]
 
     def snapshot(self) -> dict:
+        """The orb's badge counts what waits in the session you're in; its panel lists those tasks, then the
+        ones still open elsewhere, each with `where` (empty for the session you're in)."""
         shown = self._shown()
+        others = sorted(self.elsewhere(), key=lambda t: self.where(t["session"]))  # stable: each session's in order
         return {
             "waiting": sum(t["status"] == "waiting" for t in shown),
-            "tasks": [{"text": t["text"][:200], "status": t["status"]} for t in shown],
+            "tasks": [{"text": t["text"][:200], "status": t["status"], "where": ""} for t in shown]
+            + [{"text": t["text"][:200], "status": t["status"], "where": self.where(t["session"])} for t in others],
         }
 
     def _changed(self):
@@ -508,7 +536,7 @@ class SessionFeed:
         elif kind == "switched":
             self.busy = bool(ev.get("busy"))
             (TASKS.busy.add if self.busy else TASKS.busy.discard)(ev.get("session"))
-            TASKS.show(ev.get("session"))  # the orb's tasks: the session you're in now
+            TASKS.show(ev.get("session"), ev.get("title") or "", ev.get("project") or "")  # the orb's tasks: this session's first
             title, sid, project = ev.get("title"), ev.get("session"), ev.get("project") or "an unknown project"
             # The ID is written for prompts to the session, never for saying: the talker reads aloud what sits next to the name.
             which = f"\"{title}\" in the {project} project" if title else f"a session with no name, in the {project} project"
@@ -765,17 +793,22 @@ class SessionFeed:
         forms = "\n".join(f"  {fid}:\n{describe_form(qs)}" for fid, qs in self.forms.items())
         return f"[question form waiting for the user's answer; the id is for answer_question only:\n{forms}]\n"
 
-    def drain(self) -> str:
+    def drain(self, you_spoke: bool = True) -> str:
+        """The news for the next reply. Your other sessions' open tasks go along only with something else, or
+        when you spoke: alone they're no news, and voice never speaks up just to list them."""
         REPLY_CALLS.clear()  # every reply starts here: any call may run again
         self.news_due = False
-        if not self.pending and not self.queued and not self.forms and not self.permissions and not tour_is_open() and not earlier_checks():
+        elsewhere = TASKS.elsewhere_note()
+        if not you_spoke and not (self.pending or self.queued or self.forms or self.permissions or tour_is_open() or earlier_checks()):
+            elsewhere = ""
+        if not self.pending and not self.queued and not self.forms and not self.permissions and not tour_is_open() and not earlier_checks() and not elsewhere:
             return ""
         state = "busy" if self.busy else "idle"
         tour = "[the tour is open on screen: next, back, a step's number, done or close step through it]\n" if tour_is_open() else ""
         asks = ("[waiting for the user's permission on screen, to " + "; to ".join(self.permissions.values()) + "]\n") if self.permissions else ""
         checks = earlier_checks()
         checks = f"[your earlier checks before stopping or clearing, to word the next one unlike: {json.dumps(checks)}]\n" if checks else ""
-        out = ("<session_events>\n" + "\n".join(self.pending) + f"\n[session is now {state}]\n{self.waiting()}"
+        out = ("<session_events>\n" + "\n".join(self.pending) + f"\n[session is now {state}]\n{self.waiting()}{elsewhere}"
                + f"{self.open_forms()}{asks}{tour}{checks}</session_events>\n")
         self.pending = []
         return out
@@ -1902,7 +1935,7 @@ class Talker(FrameProcessor):
             if self._client is None:
                 logger.warning("[lifecycle] no talker conversation: nothing answered")
                 return
-            events = FEED.drain()
+            events = FEED.drain(you_spoke=bool(user_text))
             if not user_text and not events:
                 return
             logger.info(f"YOU: {user_text}" if user_text else "(announcing session milestone)")
