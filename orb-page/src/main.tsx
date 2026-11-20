@@ -16,6 +16,7 @@ declare global {
     setHover?: (isHovered: boolean) => void // the pointer is over the orb (the helper tracks it)
     setMicDead?: (isDead: boolean) => void // the mic gives no sound while voice is on: a mic-signal icon stays until it does
     setMuted?: (isMuted: boolean) => void // voice is muted (for a call): faded, with a mic-off icon, until you unmute
+    setWaiting?: (isWaiting: boolean) => void // another session waits on you (a permission or a question): a violet stroke inside the orb until it's answered
     webkit?: { messageHandlers?: Record<string, { postMessage: (m: unknown) => void }> }
   }
 }
@@ -58,6 +59,7 @@ function Orb() {
   const [isHovered, setHovered] = useState(false)
   const [isMicDead, setMicDead] = useState(false)
   const [isMuted, setMuted] = useState(false)
+  const [isWaiting, setWaiting] = useState(false)
 
   useEffect(() => {
     const say = (m: unknown) => window.webkit?.messageHandlers?.orb?.postMessage(m)
@@ -74,6 +76,7 @@ function Orb() {
     window.setHover = setHovered
     window.setMicDead = setMicDead
     window.setMuted = setMuted
+    window.setWaiting = setWaiting
     say({ ready: true, webgpu: 'gpu' in navigator })
     // AiAvatar picks its WebGPU renderer when it can; report which one actually drew.
     setTimeout(() => say({ renderer: document.querySelector('canvas') ? 'webgpu canvas' : 'css fallback' }), 1500)
@@ -84,7 +87,8 @@ function Orb() {
       data-opening={isOpening || undefined}
       data-hover={isHovered || undefined}
       data-mic-dead={isMicDead || undefined}
-      data-muted={isMuted || undefined}>
+      data-muted={isMuted || undefined}
+      data-waiting={isWaiting || undefined}>
       <div className="orb">
         <AiAvatar className="avatar" state={isMuted ? 'idle' : AVATAR[voice]} level={isMuted ? 0 : levelFor(voice, playback, mic)}
           label={isMuted ? 'Voice: muted' : `Voice: ${voice}`} />

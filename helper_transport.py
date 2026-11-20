@@ -132,7 +132,7 @@ class AudioHelper:
         self.out_rate = out_rate
         self.proc: asyncio.subprocess.Process | None = None
         self._lock = asyncio.Lock()
-        self._orb = {"voice": "starting", "busy": False, "opening": False, "hidden": False, "muted": False}
+        self._orb = {"voice": "starting", "busy": False, "opening": False, "hidden": False, "muted": False, "waiting": False}
         self._panel_visible = True
         self._settings: dict | None = None  # the orb menu's settings, once set_settings is called
         self._tasks: dict | None = None  # the last task snapshot, resent to a restarted helper
@@ -340,7 +340,8 @@ class AudioHelper:
     def set_orb(self, **state):
         """Update the floating orb: voice= listening/hearing/thinking/speaking..., busy= session working,
         opening= a session voice started or went to is opening (a spinner in the middle), hidden= out of sight
-        while the onboarding window shows its own orb (first_run.orb_hidden), muted= voice is muted (mute.py)."""
+        while the onboarding window shows its own orb (first_run.orb_hidden), muted= voice is muted (mute.py),
+        waiting= another session waits on you, a permission or a question (daemon.waiting_elsewhere)."""
         if {k: v for k, v in self._orb.items() if k in state} != state:
             self._orb.update(state)
             self._send_orb()

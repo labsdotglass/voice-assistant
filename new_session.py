@@ -323,10 +323,18 @@ def wait_described(ev: dict) -> str:
 
 
 class Waits:
-    """Which other sessions' waits voice has told you about: each once, until that session moves on."""
+    """Which other sessions' waits voice has told you about: each once, until that session moves on. Also what
+    the orb shows: a violet stroke while any session other than the one you're in waits on you (card #14)."""
 
     def __init__(self):
         self.told: dict[str, set[str]] = {}
+        self.since: dict[str, float] = {}  # when each session's first open wait was seen (time.monotonic)
+
+    def add(self, session: str, key: str):
+        """An open wait in `session`, by its key (as _key builds it, or "note")."""
+        if not self.told.get(session):
+            self.since[session] = time.monotonic()
+        self.told.setdefault(session, set()).add(key)
 
     @staticmethod
     def _key(ev: dict) -> str:
@@ -334,19 +342,38 @@ class Waits:
 
     def new(self, ev: dict) -> bool:
         """True the first time this wait is seen (a permission by what it asks, a question by its id)."""
-        told = self.told.setdefault(ev.get("session", ""), set())
-        if self._key(ev) in told:
+        session = ev.get("session", "")
+        if self._key(ev) in self.told.get(session, set()):
             return False
-        told.add(self._key(ev))
+        self.add(session, self._key(ev))
         return True
 
     def still(self, ev: dict) -> bool:
         """Whether this wait is still open (its session hasn't moved on since it was seen)."""
         return self._key(ev) in self.told.get(ev.get("session", ""), set())
 
+    def seed(self, session: str):
+        """A wait voice learned of without its event: the note a session left while voice was off, or a session
+        saying so when it connects (after voice restarts). Open until it moves on."""
+        self.add(session, "note")
+
+    def prune(self, polled: dict[str, float], now: float, quiet: float = 45) -> list[str]:
+        """Drops the waits of sessions gone quiet: no poll from their mod for `quiet` seconds, counted from the
+        wait's start at the earliest. A live mod polls at least every 15 s; an archived or stopped session's
+        doesn't, and its card is gone with it. -> the sessions dropped."""
+        gone = [s for s in self.told if now - max(polled.get(s, 0), self.since.get(s, now)) > quiet]
+        for s in gone:
+            self.moved_on(s)
+        return gone
+
+    def open_in(self, me: str) -> list[str]:
+        """The sessions other than `me` (the one you're in, whose card you can see) still waiting on you."""
+        return [s for s, keys in self.told.items() if keys and s != me]
+
     def moved_on(self, session: str) -> bool:
         """The session answered or carried on (a new turn, a turn's end, a permission settled, a form answered).
         True if voice had told you about a wait there."""
+        self.since.pop(session, None)
         return bool(self.told.pop(session, None))
 
 

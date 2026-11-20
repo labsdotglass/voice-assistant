@@ -7,7 +7,7 @@
 // stdin:  framed messages, [type: 1 byte][length: UInt32 LE][payload]
 //           "A": audio to play, mono int16 at --out-rate
 //           "F": flush, stop playing everything queued (barge-in)
-//           "S": orb state, JSON {"voice": "...", "busy": bool, "opening": bool, "hidden": bool, "muted": bool}
+//           "S": orb state, JSON {"voice": "...", "busy": bool, "opening": bool, "hidden": bool, "muted": bool, "waiting": bool}
 //           "V": whether the Voice panel is showing, "1" or "0" (for the orb's menu)
 //           "T": your queued tasks, JSON {"waiting": n, "tasks": [{"text", "status"}]} (the orb's badge and task panel)
 //           "M": drop the orb at a spot, JSON {"x", "y"}: its centre, as fractions of the screen (tests, demo)
@@ -280,6 +280,7 @@ final class OrbBridge: NSObject, WKScriptMessageHandler {
         log("orb page: \(m.body)")
         // A state sent before the page loaded was dropped; show the latest one now.
         if let body = m.body as? [String: Any], body["ready"] != nil {
+            orbWaiting = false  // a fresh page draws no stroke: the replay below sets it again
             if let last = lastOrbState { setOrb(last) }
             // The shadow is traced from what the window shows: once the orb is drawn, trace it again.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { orbWindow?.invalidateShadow() }
@@ -472,6 +473,7 @@ if let page = arg("--orb") {
 // on the orb moves it here instead (the page needs no left clicks). Let go near an edge and it snaps there.
 var isDraggingOrb = false  // pressed on the handle, or dragging the orb: the hand stays closed until you let go
 var orbMuted = false  // voice is muted (the "S" message's muted): the menu offers Unmute, and a click on the orb unmutes
+var orbWaiting = false  // another session waits on you: the violet stroke is showing (card #14)
 
 func dragOrb(_ window: NSWindow) {
     var grab: NSPoint?  // where the mouse took hold, relative to the window's origin
@@ -699,8 +701,13 @@ func setOrb(_ json: Data) {
     let opening = (obj["opening"] as? Bool) == true
     let hidden = (obj["hidden"] as? Bool) == true
     let muted = (obj["muted"] as? Bool) == true
+    let waiting = (obj["waiting"] as? Bool) == true  // another session waits on you: a violet stroke inside the orb (card #14)
     DispatchQueue.main.async {
         lastOrbState = json
+        if waiting != orbWaiting {
+            orbWaiting = waiting
+            orbView?.evaluateJavaScript("window.setWaiting && window.setWaiting(\(waiting))")
+        }
         if muted != orbMuted {
             orbMuted = muted
             orbView?.evaluateJavaScript("window.setMuted && window.setMuted(\(muted))")
