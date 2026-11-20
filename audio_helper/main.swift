@@ -699,7 +699,7 @@ func setOrb(_ json: Data) {
     let opening = (obj["opening"] as? Bool) == true
     let hidden = (obj["hidden"] as? Bool) == true
     let muted = (obj["muted"] as? Bool) == true
-    let waiting = (obj["waiting"] as? Bool) == true  // the session waits on you: a steady ring (card #14)
+    let waiting = (obj["waiting"] as? Bool) == true  // the session waits on you: a slow brightness pulse (card #14)
     DispatchQueue.main.async {
         lastOrbState = json
         orbView?.evaluateJavaScript("window.setWaiting && window.setWaiting(\(waiting))")

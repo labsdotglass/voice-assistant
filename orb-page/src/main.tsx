@@ -16,7 +16,7 @@ declare global {
     setHover?: (isHovered: boolean) => void // the pointer is over the orb (the helper tracks it)
     setMicDead?: (isDead: boolean) => void // the mic gives no sound while voice is on: a mic-signal icon stays until it does
     setMuted?: (isMuted: boolean) => void // voice is muted (for a call): faded, with a mic-off icon, until you unmute
-    setWaiting?: (isWaiting: boolean) => void // the session waits on you (a permission or a question): a steady ring until it's answered
+    setWaiting?: (isWaiting: boolean) => void // the session waits on you (a permission or a question): a slow brightness pulse until it's answered
     webkit?: { messageHandlers?: Record<string, { postMessage: (m: unknown) => void }> }
   }
 }

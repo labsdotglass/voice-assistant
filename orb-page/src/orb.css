@@ -150,20 +150,17 @@
 .stage[data-muted] .opening,
 .stage[data-muted][data-hover] .muted { opacity: 0; }
 
-/* The session waits on you (a permission or a question): a steady amber ring around the orb until it's answered,
-   on screen or by voice (card #14). Outside the orb, so it never covers the working dots or an icon in the middle;
-   it doesn't pulse, so it reads as "still waiting", not as news. */
-.orb::after {
-  content: '';
-  position: absolute;
-  inset: -5%;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2.5px rgb(245 165 36 / 0.95), 0 0 10px 1px rgb(245 165 36 / 0.45);
-  opacity: 0;
-  transition: opacity 300ms ease-out;
-  pointer-events: none;
+/* The session waits on you (a permission or a question): the orb slowly brightens and dims, until it's answered,
+   on screen or by voice (card #14). Inside the orb and nothing drawn on it, so it never covers the working dots, an
+   icon in the middle or the task badge; slow (3 s), so it reads as "still waiting", not as thinking. */
+.stage[data-waiting] .avatar { animation: waiting 3s ease-in-out infinite; }
+.stage[data-muted] .avatar,
+.stage[data-mic-dead] .avatar { animation: none; }  /* their own look wins */
+
+@keyframes waiting {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.2) saturate(1.15); }
 }
-.stage[data-waiting] .orb::after { opacity: 1; }
 
 @keyframes petal {
   0% { opacity: 1; }
@@ -178,5 +175,6 @@
 @media (prefers-reduced-motion: reduce) {
   .working span { animation: none; opacity: 0.8; }
   .opening span { animation: none; opacity: 0.8; }
+  .stage[data-waiting] .avatar { animation: none; filter: brightness(1.15); }
 }
 
