@@ -48,7 +48,7 @@ The orb comes up in the corner of your screen with a spinner while voice starts;
 - **Mute for a call:** say "mute, I'm taking a call", or right-click the orb → **Mute**. A falling chime marks it (a rising one when you unmute). Voice stops speaking at once and ignores everything you say on the call, the orb turns gray with a crossed-out mic, and the conversation stays. Say "unmute", or click the orb (or **Unmute** in its menu), to bring it back: it tells you briefly what came in meanwhile.
 - **Stop or redirect:** "stop that", "actually, do the tests first". Voice checks with you before it interrupts.
 - **How it talks:** tell it ("keep it shorter", "don't read file names out"). It remembers across restarts, in `~/.voice-assistant/instructions.txt`; "forget what I told you about how to talk" resets it.
-- **Other sessions:** "what sessions do I have?", "go to the pricing session", "start a new session in my-app and have it run the tests". Voice tells you when a session you're not looking at finishes or needs you.
+- **Other sessions:** "what sessions do I have?", "go to the pricing session", "start a new session in my-app and have it run the tests". Voice tells you when a session you're not looking at finishes or needs you, and while one waits on you (a permission or a question), the orb shows a violet line inside its edge until it's answered.
 - **End:** say goodbye, or right-click the orb → **Stop voice**. `/talk` toggles it.
 - **The orb:** drag it anywhere; it snaps to edges. A small badge above it counts queued requests; click it for the list.
 

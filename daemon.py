@@ -80,11 +80,17 @@ async def until_quiet(is_speaking, most: float = 8.0, step: float = 0.2) -> floa
 # (A candidate for settings.py, if a quieter choice is ever wanted in the orb's menu.)
 ANNOUNCE_MIN_SECS = 0
 SUMMARY_WAIT = 6  # seconds to wait for the app's summary of that turn before going by its answer
+WAITS = new_session.Waits()  # other sessions waiting for you: told once each, and the orb's violet stroke
+
+
+def waiting_elsewhere() -> bool:
+    """Another session waits on you (a permission or a question form): the orb shows it until it's answered."""
+    return bool(WAITS.open_in(OUTBOX.target))
 
 
 async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel=None, on_stop=None, on_orb_drop=None, on_enroll=None) -> web.AppRunner:
     busy: dict[str, bool] = {}  # per session, from its turn events
-    waits = new_session.Waits()  # other sessions waiting for you: told once each
+    waits = WAITS
 
     def on_focus(session: str, title: str, project: str):
         # At startup, and each time you switch sessions in the app: voice talks to that one now,
@@ -109,6 +115,8 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
             if waiting:
                 logger.info(f"[waiting elsewhere] {len(waiting)} waiting since voice was off: {[w['title'] for w in waiting]}")
                 talker.on_session_event({"type": "waiting_while_off", "sessions": waiting[:5]})
+                for w in waiting:
+                    waits.seed(w["id"])  # the orb shows them until they move on
         OUTBOX.focus(session, title or f"a session in {project}")
         OWNER_FILE.write_text(session)  # after a reload, only this session brings voice back
         if on_event:
@@ -175,9 +183,12 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
                         + (" (the session voice talks to)" if session == OUTBOX.target else ""))
         # Any session answering or carrying on ends its wait, the one you're in included (you may have gone
         # there to answer it): told again if it asks again, and news of it not yet spoken is withdrawn.
+        waited = waiting_elsewhere()
         if ev.get("type") in ("turn_start", "turn_complete", "permission_done", "question_done") and session:
             if waits.moved_on(session) and session != OUTBOX.target:
                 talker.on_session_event({"type": "wait_over", "session": session})
+        if ev.get("type") in ("permission", "question") and not ev.get("buttons") and session and session == OUTBOX.target:
+            waits.new(ev)  # yours to see now; leave it unanswered and the orb shows it from the next session
         if session != OUTBOX.target:
             # Its queued tasks still move on (sent, finished), or they'd be left waiting for when you come back.
             TASKS.on_event(ev)
@@ -191,6 +202,8 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
                 asyncio.create_task(announce_finished(ev))
             if ev.get("type") == "progress":
                 logger.info(f"[progress] not spoken: from session {str(session)[:8]}, not the one you're in")
+            if on_event and waiting_elsewhere() != waited:
+                on_event()  # the orb's violet stroke
             return web.json_response({"ok": True})  # another session's work: not what you're talking about
         talker.on_session_event(ev)
         if on_event:
@@ -220,8 +233,13 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
         # which and what it wants, at the next quiet moment, and offers to take you there.
         session = ev["session"]
         found = await asyncio.to_thread(new_session.turn_summary, session)
-        # Not a session the app shows, you've gone there meanwhile, or it was answered while we looked it up.
-        if not found or session == OUTBOX.target or not waits.still(ev):
+        if not found:  # not a session the app shows: nothing to wait for there
+            waits.moved_on(session)
+            if on_event:
+                on_event()
+            return
+        # You've gone there meanwhile, or it was answered while we looked it up.
+        if session == OUTBOX.target or not waits.still(ev):
             return
         what = new_session.wait_described(ev)
         logger.info(f"[waiting elsewhere] {found['title']!r} ({session[:8]}) wants {what}")
@@ -488,7 +506,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
     inbox = await serve_events(
         talker,
         socket_path,
-        on_event=(lambda: orb.set_orb(busy=FEED.busy, waiting=FEED.waiting_on_you)) if orb else None,
+        on_event=(lambda: orb.set_orb(busy=FEED.busy, waiting=waiting_elsewhere())) if orb else None,
         on_panel=orb.set_panel_visible if orb else None,
         on_stop=lambda: asyncio.create_task(task.cancel()),  # Stop voice from a session that didn't start us
         on_orb_drop=orb.drop_orb if orb else None,

@@ -150,8 +150,8 @@
 .stage[data-muted] .opening,
 .stage[data-muted][data-hover] .muted { opacity: 0; }
 
-/* The session waits on you (a permission or a question): a steady violet stroke just inside the orb's edge, until
-   it's answered, on screen or by voice (card #14). Inside the orb, off the middle, so it never covers the working
+/* Another session waits on you (a permission or a question form): a steady violet stroke just inside the orb's
+   edge, until it's answered, on screen or by voice (card #14). Not the session you're in: you see its card there. Inside the orb, off the middle, so it never covers the working
    dots, an icon there or the task badge; violet stands out on both the orb's blue top and its light bottom, and
    doesn't read as an error. Steady, no pulse: "still waiting", not news. */
 .orb::after {

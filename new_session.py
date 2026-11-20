@@ -323,7 +323,8 @@ def wait_described(ev: dict) -> str:
 
 
 class Waits:
-    """Which other sessions' waits voice has told you about: each once, until that session moves on."""
+    """Which other sessions' waits voice has told you about: each once, until that session moves on. Also what
+    the orb shows: a violet stroke while any session other than the one you're in waits on you (card #14)."""
 
     def __init__(self):
         self.told: dict[str, set[str]] = {}
@@ -343,6 +344,14 @@ class Waits:
     def still(self, ev: dict) -> bool:
         """Whether this wait is still open (its session hasn't moved on since it was seen)."""
         return self._key(ev) in self.told.get(ev.get("session", ""), set())
+
+    def seed(self, session: str):
+        """A wait voice learned of from the note a session left while voice was off: open until it moves on."""
+        self.told.setdefault(session, set()).add("note")
+
+    def open_in(self, me: str) -> list[str]:
+        """The sessions other than `me` (the one you're in, whose card you can see) still waiting on you."""
+        return [s for s, keys in self.told.items() if keys and s != me]
 
     def moved_on(self, session: str) -> bool:
         """The session answered or carried on (a new turn, a turn's end, a permission settled, a form answered).

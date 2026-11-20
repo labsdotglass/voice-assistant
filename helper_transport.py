@@ -341,7 +341,7 @@ class AudioHelper:
         """Update the floating orb: voice= listening/hearing/thinking/speaking..., busy= session working,
         opening= a session voice started or went to is opening (a spinner in the middle), hidden= out of sight
         while the onboarding window shows its own orb (first_run.orb_hidden), muted= voice is muted (mute.py),
-        waiting= the session waits on you, a permission or a question (SessionFeed.waiting_on_you)."""
+        waiting= another session waits on you, a permission or a question (daemon.waiting_elsewhere)."""
         if {k: v for k, v in self._orb.items() if k in state} != state:
             self._orb.update(state)
             self._send_orb()
