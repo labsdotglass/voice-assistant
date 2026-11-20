@@ -407,10 +407,13 @@ async function connect($: Dollar): Promise<boolean> {
 }
 
 // Whether voice talks to this session; the daemon decides, from which session the app has in focus.
-async function setVoice($: Dollar, isMine: boolean) {
+// isSwitch: voice moved to another session (not voice stopping or dying, when every session turns off at
+// once and one closing the panel isn't your choice).
+async function setVoice($: Dollar, isMine: boolean, isSwitch = false) {
   if (isMine === hasVoice) return
-  // Leaving: a close by the panel's own button since the last 2 s poll still counts as your choice.
-  if (!isMine) await syncPanel($).catch(() => undefined)
+  // Leaving for another session: a close by the panel's own button since the last 2 s poll still counts as
+  // your choice.
+  if (!isMine && isSwitch) await syncPanel($).catch(() => undefined)
   hasVoice = isMine
   vlog($, isMine ? 'voice now talks to this session' : 'voice no longer talks to this session')
   panelPoll?.cancel()
@@ -524,7 +527,7 @@ async function pollCommands($: Dollar, me: string) {
         await voiceOff($)
         return
       }
-      await setVoice($, r.owner)
+      await setVoice($, r.owner, true)
       await update($, target, () => ({ title: r.title, isHere: r.owner, isReachable: r.reachable }))
       for (const cmd of r.commands ?? []) await handle($, cmd)
     }
