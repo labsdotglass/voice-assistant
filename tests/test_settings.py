@@ -235,22 +235,19 @@ async def main():
 
     # The foot of the orb's menu: the running version, as the Voice panel's title says it (card #37).
     import daemon
-    real = daemon.Path(daemon.__file__).parent / ".claude-plugin" / "plugin.json"
+    ok(daemon.version_label("0.49.8") == "Voice · 0.49.8", "the menu shows a release's version")
+    ok(daemon.version_label("0.49.8-next.ab12cd3") == "Voice · 0.49.8 next", "and marks a next install")
+    ok(daemon.version_label(None) == "Voice", "with no version, just Voice")
     with tempfile.TemporaryDirectory() as d:
-        (Path(d) / ".claude-plugin").mkdir()
-        fake = Path(d) / ".claude-plugin" / "plugin.json"
-        saved = daemon.__file__
-        daemon.__file__ = str(Path(d) / "daemon.py")
-        try:
-            fake.write_text('{"version": "0.49.8"}')
-            ok(daemon.version_label() == "Voice · 0.49.8", "the menu shows a release's version")
-            fake.write_text('{"version": "0.49.8-next.ab12cd3"}')
-            ok(daemon.version_label() == "Voice · 0.49.8 next", "and marks a next install")
-            fake.unlink()
-            ok(daemon.version_label() == "Voice", "with no plugin.json, just Voice")
-        finally:
-            daemon.__file__ = saved
-    ok(daemon.orb_menu()["version"].startswith("Voice · ") and real.exists(), "the menu's settings carry the version")
+        fake = Path(d) / "plugin.json"
+        ok(daemon.plugin_version(fake) is None, "no plugin.json: no version")
+        for bad in ('{"version": 1}', '{"version": ""}', '{}', 'not json'):
+            fake.write_text(bad)
+            ok(daemon.plugin_version(fake) is None, f"an unusable plugin.json ({bad}): no version, nothing raised")
+        fake.write_text('{"version": "0.51.0"}')
+        ok(daemon.plugin_version(fake) == "0.51.0", "a good one: its version")
+    ok(daemon.orb_menu()["version"] == daemon.version_label(daemon.VERSION) != "Voice",
+       "the menu carries the version read at start")
 
     print(f"{sum(results)}/{len(results)} passed")
     sys.exit(0 if all(results) else 1)
