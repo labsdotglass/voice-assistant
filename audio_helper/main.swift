@@ -9,8 +9,9 @@
 //           "F": flush, stop playing everything queued (barge-in)
 //           "S": orb state, JSON {"voice": "...", "busy": bool, "opening": bool, "hidden": bool, "muted": bool, "waiting": bool}
 //           "V": whether the Voice panel is showing, "1" or "0" (for the orb's menu)
-//           "T": your queued tasks, JSON {"waiting": n, "tasks": [{"text", "status", "where"}]} (the orb's badge and task panel;
-//                "where" is "project · session" for a task in another session, empty for the one you're in)
+//           "T": your queued tasks, JSON {"waiting": n, "tasks": [{"text", "status", "where", "group"}]} (the orb's badge and
+//                task panel; "where" is "project · session" for a task in another session, empty for the one you're in;
+//                "group" is that session's id, so two with the same name get a heading each)
 //           "M": drop the orb at a spot, JSON {"x", "y"}: its centre, as fractions of the screen (tests, demo)
 //           "P": play a soft tick (the tour moved by voice)
 //           "D": voice dropped what was likely you: a short sound (no ring on the orb since card #53)
@@ -620,8 +621,9 @@ func taskList() -> NSViewController {
     for task in lastTasks {
         // Tasks in your other sessions come after yours, under their project and session's title (card #9).
         let place = task["where"] ?? ""
-        if !place.isEmpty && place != heading {
-            heading = place
+        let group = task["group"] ?? place  // a heading per session, even when two share a name
+        if !place.isEmpty && group != heading {
+            heading = group
             let head = NSTextField(labelWithString: place)
             head.font = .systemFont(ofSize: 11, weight: .semibold)
             head.textColor = .secondaryLabelColor

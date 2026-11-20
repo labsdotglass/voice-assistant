@@ -93,12 +93,15 @@ async def serve_events(talker: Talker, socket_path: str, on_event=None, on_panel
     busy: dict[str, bool] = {}  # per session, from its turn events
     waits = WAITS
     polled: dict[str, float] = {}  # per session, when its mod last polled for commands (time.monotonic)
+    # Its tasks show in the orb's panel while it's there: a live mod polls at least every 15 s.
+    TASKS.alive = lambda session: time.monotonic() - polled.get(session, 0) < 45
 
     async def prune_waits():
         # A session archived or stopped with a card open never says it moved on: drop it once its mod goes quiet.
         while True:
             await asyncio.sleep(15)
             gone = waits.prune(polled, time.monotonic())
+            TASKS.refresh()  # a session gone quiet takes its open tasks out of the panel
             if gone:
                 logger.info(f"[waiting elsewhere] dropped, no longer polling: {[s[:8] for s in gone]}")
                 if on_event:
@@ -642,6 +645,7 @@ async def main(socket_path: str, aec: bool, headphones: bool, restart: str | Non
             return True, f"The transcript is {'shown' if action == 'show_transcript' else 'hidden'}."
         if action == "clear_conversation":
             emit({"type": "clear"})
+            FEED.sent_elsewhere = ""  # a fresh conversation hears the other sessions' open tasks again
             return True, "The conversation is cleared."
         if action == "language":
             code = settings.find_language(value)

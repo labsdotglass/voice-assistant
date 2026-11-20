@@ -94,10 +94,22 @@ ok(snap["tasks"].index(mine[0]) < snap["tasks"].index(theirs[0]), "yours first")
 ok("api · Fix login: Add a rate limit (waiting)" in TASKS.elsewhere_note(), "the talker hears where the other open task is")
 FEED.pending, FEED.queued, FEED.forms, FEED.permissions = [], [], {}, {}
 ok(FEED.drain(you_spoke=False) == "", "alone, other sessions' tasks are no news: voice doesn't speak up to list them")
-ok("api · Fix login" in FEED.drain(you_spoke=True), "but when you speak, the talker has them")
+said = FEED.drain(you_spoke=True)
+ok("api · Fix login" in said and "Only their own session" in said, "but when you speak, the talker has them, and that it can't change them")
+ok("Fix login" not in FEED.drain(you_spoke=True), "said once: not again every reply while nothing changed")
+TASKS.alive = lambda session: session != "s-api"  # its mod stopped polling: archived or closed
+ok(not [t for t in TASKS.snapshot()["tasks"] if t["where"]] and not TASKS.elsewhere_note(),
+   "a session that went away: its open task leaves the panel and the talker's note")
+ok("nothing is open in your other sessions" in FEED.drain(you_spoke=True), "and the talker hears it's gone")
+TASKS.alive = lambda session: True
 TASKS.waiting([], "s-api")  # sent: running, its session working
 TASKS.on_event({"type": "turn_complete", "session": "s-api"})
 ok(all(not t["where"] for t in TASKS.snapshot()["tasks"]), "once it's done there, it leaves your panel")
+TASKS.names.update({"s-b1": ("", "web"), "s-b2": ("", "web")})
+TASKS.waiting([{"id": "b1", "text": "One"}], "s-b1")
+TASKS.waiting([{"id": "b2", "text": "Two"}], "s-b2")
+groups = [t["group"] for t in TASKS.snapshot()["tasks"] if t["where"] == "web"]
+ok(groups == ["s-b1", "s-b2"], "two untitled sessions in one project: a heading each, not one mixed group")
 TASKS.show("s-x")
 ok(TASKS.where("s-unknown") == "Another session", "a session voice never saw: still labeled")
 
