@@ -150,17 +150,21 @@
 .stage[data-muted] .opening,
 .stage[data-muted][data-hover] .muted { opacity: 0; }
 
-/* The session waits on you (a permission or a question): the orb slowly brightens and dims, until it's answered,
-   on screen or by voice (card #14). Inside the orb and nothing drawn on it, so it never covers the working dots, an
-   icon in the middle or the task badge; slow (3 s), so it reads as "still waiting", not as thinking. */
-.stage[data-waiting] .avatar { animation: waiting 3s ease-in-out infinite; }
-.stage[data-muted] .avatar,
-.stage[data-mic-dead] .avatar { animation: none; }  /* their own look wins */
-
-@keyframes waiting {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.2) saturate(1.15); }
+/* The session waits on you (a permission or a question): a steady violet stroke just inside the orb's edge, until
+   it's answered, on screen or by voice (card #14). Inside the orb, off the middle, so it never covers the working
+   dots, an icon there or the task badge; violet stands out on both the orb's blue top and its light bottom, and
+   doesn't read as an error. Steady, no pulse: "still waiting", not news. */
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: -2.5%;  /* the avatar draws 5% wider than .orb; this puts the stroke on its edge */
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 3px rgb(139 108 240);
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
 }
+.stage[data-waiting] .orb::after { opacity: 1; }
 
 @keyframes petal {
   0% { opacity: 1; }
@@ -175,6 +179,5 @@
 @media (prefers-reduced-motion: reduce) {
   .working span { animation: none; opacity: 0.8; }
   .opening span { animation: none; opacity: 0.8; }
-  .stage[data-waiting] .avatar { animation: none; filter: brightness(1.15); }
 }
 
