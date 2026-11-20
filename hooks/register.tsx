@@ -353,7 +353,7 @@ async function setPanel($: Dollar, isOpen: boolean) {
     movingPanel--
     panelMoves++
   }
-  await syncPanel($, true).catch(() => undefined)
+  await syncPanel($, true, false).catch(() => undefined) // what it just did isn't your choice
 }
 // Voice stopping makes a pending follow moot: one that read the file before voice stopped opens nothing after.
 let voiceOffs = 0
@@ -367,12 +367,12 @@ async function followPanelChoice($: Dollar) {
 // right-click menu offers Show or Hide transcript. Only changes are sent. In the session voice is on, a
 // change you made (the orb's menu, by voice, /voice-panel, the panel's own close button) becomes the choice.
 let sentPanel: boolean | undefined
-async function syncPanel($: Dollar, force = false) {
+async function syncPanel($: Dollar, force = false, mayRecord = true) {
   const moves = panelMoves
   const isUp = (await $.ui.panes()).some(pane => pane.id === PANE)
   const wasUp = await read($, isPanelOpen)
   await update($, isPanelOpen, () => isUp)
-  if (hasVoice && !movingPanel && moves === panelMoves && isUp !== wasUp) {
+  if (mayRecord && hasVoice && !movingPanel && moves === panelMoves && isUp !== wasUp) {
     vlog($, `panel choice: ${isUp ? 'open' : 'closed'}, for every session`)
     await savePanelChoice($, isUp)
   }
