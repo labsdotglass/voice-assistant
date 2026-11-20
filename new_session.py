@@ -100,6 +100,22 @@ MODELS = ("opus", "sonnet", "haiku")  # what --model takes by voice: aliases for
 EFFORTS = ("low", "medium", "high", "xhigh", "max")  # what --effort takes
 
 
+def model_choice(model: str = "", effort: str = "") -> tuple[str, str, list[str]]:
+    """What a new session can start on: (model or "", effort or "", what was asked but isn't one of them)."""
+    m, e = model.strip().lower(), effort.strip().lower()
+    unknown = [x for x, ok in ((model.strip(), m in MODELS), (effort.strip(), e in EFFORTS)) if x and not ok]
+    return (m if m in MODELS else ""), (e if e in EFFORTS else ""), unknown
+
+
+def spoken_model(model_id: str) -> str:
+    """A model id as you'd say it: "claude-sonnet-5-5" -> "Sonnet 5.5"; anything else as it is."""
+    found = re.search(r"(opus|sonnet|haiku|fable)[-_ ]?(\d+)?(?:[-.](\d+))?", model_id.lower())
+    if not found:
+        return model_id
+    family, major, minor = found.groups()
+    return " ".join(x for x in (family.capitalize(), ".".join(v for v in (major, minor) if v)) if x)
+
+
 async def start(message: str, folder: str = "", name: str = "", model: str = "", effort: str = "") -> tuple[bool, str]:
     """Starts a session in the folder with your first message, then opens it in the app.
     -> (started?, what happened, for voice to say)."""
@@ -116,10 +132,11 @@ async def start(message: str, folder: str = "", name: str = "", model: str = "",
     if name:
         argv += ["--name", name]
     # A model or effort you asked for (card #10); anything else is left to your defaults.
-    if model.lower() in MODELS:
-        argv += ["--model", model.lower()]
-    if effort.lower() in EFFORTS:
-        argv += ["--effort", effort.lower()]
+    model, effort, _ = model_choice(model, effort)
+    if model:
+        argv += ["--model", model]
+    if effort:
+        argv += ["--effort", effort]
     argv += ["--", message or "Hi"]  # after --: a message that starts with "-" is still the prompt, not an option
     logger.info(f"[new session] starting in {cwd}: {message!r} (name {name!r}, model {model or 'default'}, effort {effort or 'default'})")
     proc = await asyncio.create_subprocess_exec(*argv, cwd=cwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)

@@ -70,7 +70,7 @@ If it's unclear whether they want something sent, ask in one short sentence.
 3h. When the events say another session finished its turn (or several did while voice was off), or that another session is waiting for the user (a permission or a question it asks), that's news from elsewhere, not about the session you're working with. For a waiting one, say in a few words what it wants; it's answered there, on screen, never by voice from here. Tell it the way a colleague would mention it in passing: brief, naming the session so the user knows which one, and asking once, lightly, whether they want to go there. A yes, or any way of saying take me there, is go_to_session with the ID the events give; anything else leaves it, and you don't ask again. If they ask later what finished or what's waiting, the events still list those sessions.
 3i. Renaming a session (this one or another) is work for the session: call send_to_session, asking it plainly to rename that session, with the new name exactly as the user said it. It is not new_session, go_to_session or voice_menu. Never say you can't rename a session.
 3j. Archiving the session you're working with: voice breaks if it's archived while you're still in it. So before anything runs, ask the user in one short question where to go first, a new session or an existing one; never send the archive request to this session. Once they say, go there with new_session or go_to_session, with archive_after true: the session you leave is archived once the move is done. Archiving any other session is plain work for the session: send_to_session.
-3k. Changing the model or reasoning effort of the session you're working with is work for the session: call send_to_session, asking it plainly to switch its own model, effort or both to exactly what the user named, as a settings change and nothing else. For a new session, pass them to new_session instead. When they ask which model the session runs on, the events say it; the effort isn't reported, so say you can't tell it and offer to ask the session.
+3k. Changing the model or reasoning effort of the session you're working with is work for the session: call send_to_session, asking it plainly to switch its own model, effort or both to exactly what the user named, as a settings change and nothing else. For a new session, pass them to new_session instead. When they ask which model the session runs on, answer with the name the events give; if they haven't given one, you don't know it, so say so and offer to ask the session. The effort is never reported: say you can't tell it and offer to ask the session.
 4. Instructions about how you talk or behave (tone, length, wording, what to say or not say; not voice mode's own settings, such as the language you both speak, your voice or how their words are passed on, which are voice_menu's and last by themselves): follow them right away, and also call remember_instruction with it, faithfully and in their terms, so the change lasts beyond this conversation. Never send such an instruction to the session: it's about you, not their project. When they ask you to forget what they told you about how to talk, call forget_instructions.
 When you call a tool, put what you say out loud in its ack field: it's spoken the moment you write it, before the tool runs, so the user hears you right away. Write no other text in that reply unless the tool's reply asks you to. Say it the way a colleague on a call would, shaped by the moment: whether it goes straight through or waits behind running work (the session events say whether the session is busy), whether you're stopping something, how the conversation is going.  Make it up fresh each time; don't fall back on stock phrases, and never say the same thing twice in a row. Keep it to one short sentence of a few words, never a single bare word. Never read out, repeat or paraphrase what you sent: refer to the work only as "that", "it" or "the next one", never by what it is (no file names, no task names).
 
@@ -689,7 +689,8 @@ class SessionFeed:
             # there). Background for when the user asks, never news by itself.
             if ev.get("model") and ev["model"] != self.model:
                 self.model = ev["model"]
-                self.pending.append(f"[the session runs on the model {self.model} (background: say it only when asked)]")
+                self.pending.append(f"[background, not news: the session runs on {app_sessions.spoken_model(self.model)}. "
+                                    "Mention it only when the user asks, by that name]")
             return False
         elif kind == "typed":
             # The user typed this in the session's chat themselves, not through you: so you can follow the
@@ -1346,9 +1347,16 @@ async def new_session(args):
         TOOL_OUTCOME["needs_words"] = True
         return {"content": [{"type": "text", "text": "Voice can't start sessions here. Say so in a few words."}]}
     archive_after(args)
-    NEW_SESSION["start"](args.get("message", ""), args.get("folder", ""), args.get("name", ""),
-                         args.get("model", ""), args.get("effort", ""))
-    logger.info(f"-> NEW SESSION: {args.get('name')!r} in {args.get('folder') or 'the projects folder'}: {args.get('message')!r}")
+    model, effort, unknown = app_sessions.model_choice(args.get("model", ""), args.get("effort", ""))
+    NEW_SESSION["start"](args.get("message", ""), args.get("folder", ""), args.get("name", ""), model, effort)
+    logger.info(f"-> NEW SESSION: {args.get('name')!r} in {args.get('folder') or 'the projects folder'}: {args.get('message')!r}"
+                f" (model {model or 'default'}, effort {effort or 'default'}" + (f"; not one voice can pick: {unknown}" if unknown else "") + ")")
+    if unknown:
+        TOOL_OUTCOME["needs_words"] = True
+        return {"content": [{"type": "text", "text": (
+            f"Starting, but on the user's default for {' and '.join(repr(u) for u in unknown)}: voice can start a session "
+            "only on opus, sonnet or haiku (the latest of each), at low, medium, high, xhigh or max effort. "
+            "Tell them that in one short sentence, correcting your ack if it named the other one.")}]}
     TOOL_OUTCOME["needs_words"] = False
     return {"content": [{"type": "text", "text": "Starting: it runs its first reply, then opens in the app, and you'll be told. "
                                                   "Your ack was spoken; add nothing."}]}

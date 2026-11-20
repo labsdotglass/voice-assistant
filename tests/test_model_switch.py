@@ -60,10 +60,16 @@ async def main():
     ok(opened and opened[0][0] == "new" and opened[0][1].lower() == "opus" and opened[0][2].lower() == "high" and not sent,
        f"a new session on a model: new_session gets them ({opened})", said)
 
-    fresh("[the session runs on the model claude-sonnet-5-5 (background: say it only when asked)]")
+    fresh("[background, not news: the session runs on Sonnet 5.5. Mention it only when the user asks, by that name]")
     async with ClaudeSDKClient(options=make_options()) as c:
         said, sent = await turn(c, "Which model is this session on?")
-    ok("sonnet" in said.lower() and not sent, "asked which model: says the one reported, sends nothing", said)
+    ok("sonnet" in said.lower() and "claude-" not in said.lower() and not sent, "asked which model: says the one reported, by name, sends nothing", said)
+
+    fresh()  # no model reported (an older plugin, or before it arrives)
+    async with ClaudeSDKClient(options=make_options()) as c:
+        said, sent = await turn(c, "Which model is this session on?")
+    ok(not any(m in said.lower() for m in ("opus", "sonnet", "haiku", "fable")) and not sent,
+       "none reported: no guess, nothing sent unasked", said)
 
     print(f"{sum(results)}/{len(results)} passed")
     sys.exit(0 if all(results) else 1)

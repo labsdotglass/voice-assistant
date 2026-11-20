@@ -47,12 +47,19 @@ async def main():
     FEED.add({"type": "switched", "session": "s1", "title": "Editor", "busy": False, "initial": True})
     FEED.pending = []
     news = FEED.add({"type": "model", "model": "claude-opus-5-5"})
-    ok(not news and any("claude-opus-5-5" in p and "only when asked" in p for p in FEED.pending), "the model is background, never news")
+    ok(not news and any("Opus 5.5" in p and "only when the user asks" in p and "claude-" not in p for p in FEED.pending),
+       "the model is background, never news, and by the name you'd say, not its id")
     FEED.pending = []
     FEED.add({"type": "model", "model": "claude-opus-5-5"})
     ok(not FEED.pending, "the same model again: nothing new")
     FEED.add({"type": "switched", "session": "s2", "title": "Other", "busy": False})
     ok(FEED.model == "", "a switch: the new session reports its own")
+
+    ok(new_session.model_choice(" Sonnet ", "HIGH") == ("sonnet", "high", []), "a model and effort as said: cleaned up")
+    ok(new_session.model_choice("Opus 4.5", "turbo") == ("", "", ["Opus 4.5", "turbo"]),
+       "ones voice can't pick: left to the defaults, and named so the talker says so")
+    ok(new_session.spoken_model("claude-sonnet-5-5") == "Sonnet 5.5" and new_session.spoken_model("claude-opus-5-5[1m]") == "Opus 5.5",
+       "a model id as you'd say it")
 
     print(f"{sum(results)}/{len(results)} passed")
     sys.exit(0 if all(results) else 1)
