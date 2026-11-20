@@ -18,6 +18,7 @@ type RunPaths = {
   log: string
   modLog: string
   venv: string // voice's Python packages: kept here, not in the plugin's folder, so an update reuses them
+  panel: string // your one choice for the Voice panel, "open" or "closed", for every session (card #11)
 }
 let runPaths: Promise<RunPaths> | undefined
 function paths($: Dollar): Promise<RunPaths> {
@@ -36,6 +37,7 @@ function paths($: Dollar): Promise<RunPaths> {
         waiting: `${d}/run/waiting`,
         log: `${d}/logs/voice.log`,
         modLog: `${d}/logs/mod.log`,
+        panel: `${d}/panel`,
       }
     })
     .catch(err => {
@@ -326,12 +328,40 @@ function post($: Dollar, ev: Record<string, unknown>) {
     })
 }
 
+// The Voice panel is open or closed the same way in every session (card #11): your last choice, kept in
+// ~/.voice-assistant/panel, which every session reads. Open until you first close it.
+const panelChoice = ($: Dollar) =>
+  paths($).then(p => $.fs.read(p.panel)).then(text => String(text).trim() !== 'closed').catch(() => true)
+const savePanelChoice = ($: Dollar, isOpen: boolean) =>
+  paths($).then(p => $.fs.write(p.panel, isOpen ? 'open' : 'closed')).catch(() => undefined)
+
+// Opening or closing the panel to follow your choice (or because voice turned off) isn't a choice of yours:
+// while this is set, syncPanel doesn't record what it sees.
+let followingChoice = false
+async function setPanel($: Dollar, isOpen: boolean) {
+  followingChoice = true
+  try {
+    if (isOpen) await $.ui.open({ id: PANE, title: paneTitle($) })
+    else await $.ui.close({ id: PANE }).catch(() => undefined)
+    await syncPanel($, true)
+  } finally {
+    followingChoice = false
+  }
+}
+const followPanelChoice = async ($: Dollar) => setPanel($, await panelChoice($))
+
 // Whether the Voice panel is up, from the app's own record of panes, sent to the orb so its
-// right-click menu offers Show or Hide transcript. Only changes are sent.
+// right-click menu offers Show or Hide transcript. Only changes are sent. In the session voice is on, a
+// change you made (the orb's menu, by voice, /voice-panel, the panel's own close button) becomes the choice.
 let sentPanel: boolean | undefined
 async function syncPanel($: Dollar, force = false) {
   const isUp = (await $.ui.panes()).some(pane => pane.id === PANE)
+  const wasUp = await read($, isPanelOpen)
   await update($, isPanelOpen, () => isUp)
+  if (hasVoice && !followingChoice && isUp !== wasUp) {
+    vlog($, `panel choice: ${isUp ? 'open' : 'closed'}, for every session`)
+    await savePanelChoice($, isUp)
+  }
   if (force || isUp !== sentPanel) {
     sentPanel = isUp
     post($, { type: 'panel', visible: isUp })
@@ -372,7 +402,11 @@ async function setVoice($: Dollar, isMine: boolean) {
   sentPanel = undefined
   if (isMine) {
     await update($, voice, () => 'listening') // until the daemon's next state line
-    await syncPanel($, true)
+    // Open or closed as you last left it, in whichever session; a first run's window is the one to look at
+    // meanwhile, and the panel follows the choice once it's gone (turnOn).
+    if (firstRunOpen) await syncPanel($, true)
+    else await followPanelChoice($)
+
     postQueue($) // the talker learns what this session has waiting
     void postHistory($) // and what was said here before voice came, so it starts with this session's context
     // And what this session is waiting on you for: an open question form, or its closing question card.
@@ -512,6 +546,8 @@ const isDaemonUp = ($: Dollar) =>
 
 async function voiceOff($: Dollar) {
   vlog($, 'voice marked off in this session')
+  // The panel goes with voice; your choice stays, so the next start opens it again if you had it open.
+  await setPanel($, false)
   await update($, isOn, () => false)
   await update($, voice, () => 'off')
   await update($, startStep, () => '')
@@ -683,7 +719,7 @@ async function start($: Dollar, why: string, { firstTour = false, isRestart = fa
   void update($, voice, () => 'starting')
   void update($, startStep, () => START_STEP.starting)
   // A first run's window is the one to look at: the panel comes once it's gone (turnOn).
-  if (!firstTour && !firstRunOpen) void $.ui.open({ id: PANE, title: paneTitle($) })
+  if (!firstTour && !firstRunOpen) void followPanelChoice($)
   // /talk again after Couldn't install: the window goes back to Setting up.
   if (firstTour) await $.process.run([uv, 'run', '--no-project', '--directory', $.plugin.root, 'onboarding.py', '--install-retry']).catch(() => undefined)
   // The first start sets up the Python packages, builds the orb and downloads the speech models
@@ -906,7 +942,7 @@ async function turnOn($: Dollar, why: string) {
         firstRunOpen = false
         await watchHiddenSetup($, false)
         // The window is gone (Start talking, or closed): now the panel, which start() left closed meanwhile.
-        if (await read($, isOn).catch(() => false)) void $.ui.open({ id: PANE, title: paneTitle($) })
+        if (await read($, isOn).catch(() => false)) void followPanelChoice($)
       })
       return
     }
